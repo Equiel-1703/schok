@@ -215,11 +215,38 @@ defmodule Hok do
          end
     end
     
-    defmacro include_rts(inc_list) do
+    defmacro include_rts(imp) do
       #IO.inspect inc_list
-      inc_list
+      if(is_list imp) do
+            imp
                   |> Enum.map(fn {_,_,[module]} -> module end)
                   |> Enum.map(fn module -> add_module_to_app(module) end)
+      end            
+      if(is_tuple imp) do
+
+        {module,type} = imp
+        {_,_,[module]} = module
+        add_module_to_app(module)      
+        
+            
+        
+        type = cond do
+          is_atom(type) -> type
+          true ->   {real_map, _binding} = Code.eval_quoted(type)
+                 real_map 
+        end
+       # IO.puts "compiling......."
+        id = get_module_id()
+        set_default_type_server({id,type})
+        
+        #IO.inspect app
+         
+          quote do
+           Hok.set_current_id(unquote(id))
+          end
+      
+
+      end            
   
     end
     def spawn_rts(k,t,b,l) do #when is_function(k) do
