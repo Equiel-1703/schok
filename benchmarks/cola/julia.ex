@@ -63,8 +63,13 @@ Hok.defmodule_rts Julia do
     end
   end
   def mapgen2D_step_xy_1para_noret(result_gpu, arg1, size,f) do
+    #dim3 block(16, 16);
+    #dim3 grid((DIM + block.x - 1) / block.x, (DIM + block.y - 1) / block.y);
 
-    Hok.spawn_rts(&Julia.mapgen2D_xy_1para_noret_ker/4,{size,size,1},{1,1,1},[result_gpu,arg1,size,f])
+   grid = div(size+ 16 -1,16)
+    #IO.puts "grid #{grid}"
+   # Hok.spawn_rts(&Julia.mapgen2D_xy_1para_noret_ker/4,{size,size,1},{1,1,1},[result_gpu,arg1,size,f])
+   Hok.spawn_rts(&Julia.mapgen2D_xy_1para_noret_ker/4,{grid,grid,1},{16,16,1},[result_gpu,arg1,size,f])
     result_gpu
   end
 end
@@ -81,9 +86,11 @@ dim = m
 
 #values_per_pixel = 4
 
+prev = System.monotonic_time()
+
+
 result_gpu = Hok.new_gnx(dim*dim,4,{:s,32})
 
-prev = System.monotonic_time()
 
 _image = result_gpu
   |> Julia.mapgen2D_step_xy_1para_noret(dim,dim, &Julia.julia_function/4)
