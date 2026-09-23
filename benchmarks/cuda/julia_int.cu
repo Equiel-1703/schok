@@ -210,7 +210,7 @@ int main(int argc, char const *argv[])
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time, start, stop);
 
-    printf("CUDA\t%d\t%3.1f\n", usr_value, time);
+    printf("CUDA\t%lu\t%3.1f\n", usr_value, time);
 
     // genBpm(height,width,h_pixelbuffer);
 
