@@ -78,7 +78,12 @@ Hok.defmodule_rts Julia do
     # dim3 block(16, 16);
     # dim3 grid((DIM + block.x - 1) / block.x, (DIM + block.y - 1) / block.y);
 
-    grid = div(size + 16 - 1, 16)
+    block_size = 16
+    grid = div(size + block_size - 1, block_size)
+
+    IO.puts("IMG size = #{size} x #{size}")
+    IO.puts("Block size = #{block_size} | Grid size = #{grid}")
+
     # IO.puts "grid #{grid}"
     # Hok.spawn_rts(&Julia.mapgen2D_xy_1para_noret_ker/4,{size,size,1},{1,1,1},[result_gpu,arg1,size,f])
     Hok.spawn_rts(&Julia.mapgen2D_xy_1para_noret_ker/4, {grid, grid, 1}, {16, 16, 1}, [
