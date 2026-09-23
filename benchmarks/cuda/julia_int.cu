@@ -153,17 +153,18 @@ __global__ void mapgen2D_xy_1para_noret_ker(int *resp, int arg1, int size, void 
 
 int main(int argc, char const *argv[])
 {
+    size_t usr_value = (size_t)atol(argv[1]);
 
-    int usr_value = atoi(argv[1]);
+    size_t height, width, DIM;
+    height = width = DIM = usr_value;
 
-    int height = usr_value;
-    int width = usr_value;
-    int DIM = usr_value;
-    int size_array = height * width * 4 * sizeof(int);
+    size_t size_array = sizeof(int) * height * width * 4;
+
     cudaError_t j_error;
 
     // int pixelbytesize=  height*width*_bitsperpixel/8;
-    // printf(" pixel byte size %lu\n",pixelbytesize);
+    printf("IMG size = %d x %d\n", (int)height, (int)width);
+    printf("IMG size in bytes = %lu\n", size_array);
 
     int *d_pixelbuffer;
 
@@ -181,11 +182,15 @@ int main(int argc, char const *argv[])
     ////////
 
     ////////////////////
-    // dim3 grid(DIM,DIM);
-    dim3 block(16, 16);
-    dim3 grid((DIM + block.x - 1) / block.x, (DIM + block.y - 1) / block.y);
+    const int blockSize = 16;
+    const int gridSize = (DIM + blockSize - 1) / blockSize;
+
+    dim3 block(blockSize, blockSize);
+    dim3 grid(gridSize, gridSize);
 
     void (*f)(int *, int, int, int) = (void (*)(int *, int, int, int))get_julia_function_ptr();
+
+    printf("Launching kernel with grid (%d,%d) and block (%d,%d)\n", grid.x, grid.y, block.x, block.y);
 
     mapgen2D_xy_1para_noret_ker<<<grid, block>>>(d_pixelbuffer, DIM, DIM, f);
 
