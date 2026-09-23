@@ -98,7 +98,7 @@ static ERL_NIF_TERM new_gpu_array_nif(ErlNifEnv *env, int argc, const ERL_NIF_TE
   {
     data_size = sizeof(int) * nrow * ncol;
 
-    printf("Data size of GNx: %lu\n", data_size);
+    printf("Size in bytes of <int> GNx: %lu\n", data_size);
 
     //// MAKE CUDA CALL
     cudaMalloc((void **)&dev_array, data_size);
