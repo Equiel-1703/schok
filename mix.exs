@@ -24,7 +24,6 @@ defmodule Hok.MixProject do
     [
       {:matrex, "~> 0.6"},
       {:nx, "~> 0.7.3"},
-      {:exla, "~> 0.7"}
     ]
   end
 end
