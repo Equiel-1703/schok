@@ -1,0 +1,6 @@
+_build/
+.elixir_ls/
+priv/
+deps/
+mix.lock
+erl_crash.dump

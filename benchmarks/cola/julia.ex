@@ -75,14 +75,11 @@ Hok.defmodule_rts Julia do
   end
 
   def mapgen2D_step_xy_1para_noret(result_gpu, arg1, size, f) do
-    # dim3 block(16, 16);
-    # dim3 grid((DIM + block.x - 1) / block.x, (DIM + block.y - 1) / block.y);
-
     block_size = 16
     grid = div(size + block_size - 1, block_size)
 
     IO.puts("IMG size = #{size} x #{size}")
-    IO.puts("Block size = #{block_size} | Grid size = #{grid}")
+    IO.puts("Grid size = #{grid} | Block size = #{block_size}")
 
     # IO.puts "grid #{grid}"
     # Hok.spawn_rts(&Julia.mapgen2D_xy_1para_noret_ker/4,{size,size,1},{1,1,1},[result_gpu,arg1,size,f])
