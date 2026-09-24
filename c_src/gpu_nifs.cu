@@ -5,6 +5,53 @@
 #include <stdio.h>
 #include <dlfcn.h>
 
+// For debug purposes only
+void print_gpu_info()
+{
+  int deviceCount = 0;
+  cudaGetDeviceCount(&deviceCount);
+
+  if (deviceCount == 0)
+  {
+      printf("No CUDA-capable devices found.\n");
+      return;
+  }
+
+  int driverVersion = 0, runtimeVersion = 0;
+  cudaDriverGetVersion(&driverVersion);
+  cudaRuntimeGetVersion(&runtimeVersion);
+
+  printf("CUDA Driver Version:  %d.%d\n", driverVersion / 1000, (driverVersion % 100) / 10);
+  printf("CUDA Runtime Version: %d.%d\n", runtimeVersion / 1000, (runtimeVersion % 100) / 10);
+  printf("Total Devices:        %d\n\n", deviceCount);
+
+  // 2. Iterate through each GPU and get properties
+  for (int dev = 0; dev < deviceCount; ++dev)
+  {
+      cudaDeviceProp prop;
+      cudaGetDeviceProperties(&prop, dev);
+      cudaSetDevice(dev);
+
+      size_t freeMem = 0, totalMem = 0;
+      cudaMemGetInfo(&freeMem, &totalMem);
+
+      printf("================ Device %d: %s ================\n", dev, prop.name);
+      printf("Compute Capability:       %d.%d\n", prop.major, prop.minor);
+      printf("Total Global Memory:      %.2f GB (%zu bytes)\n", (double)prop.totalGlobalMem / (1024 * 1024 * 1024), prop.totalGlobalMem);
+      printf("Free Global Memory:       %.2f GB (%zu bytes)\n", (double)freeMem / (1024 * 1024 * 1024), freeMem);
+      printf("Multiprocessors (SMs):    %d\n", prop.multiProcessorCount);
+      printf("Max Threads per Block:    %d\n", prop.maxThreadsPerBlock);
+      printf("Max Threads per SM:       %d\n", prop.maxThreadsPerMultiProcessor);
+      printf("Warp Size:                %d\n", prop.warpSize);
+      printf("Shared Memory per Block:  %.2f KB\n", (double)prop.sharedMemPerBlock / 1024.0);
+      printf("Memory Bus Width:         %d-bit\n", prop.memoryBusWidth);
+      printf("L2 Cache Size:            %.2f MB\n\n", (double)prop.l2CacheSize / (1024.0 * 1024.0));
+  }
+
+  // Set device 0 as the default device for subsequent CUDA operations
+  cudaSetDevice(0);
+}
+
 #define MX_ROWS(matrix) (((uint32_t *)matrix)[0])
 #define MX_COLS(matrix) (((uint32_t *)matrix)[1])
 #define MX_SET_ROWS(matrix, rows) ((uint32_t *)matrix)[0] = rows
@@ -96,6 +143,8 @@ static ERL_NIF_TERM new_gpu_array_nif(ErlNifEnv *env, int argc, const ERL_NIF_TE
   }
   else if (strcmp(type_name, "int") == 0)
   {
+    print_gpu_info();
+    
     data_size = sizeof(int) * nrow * ncol;
 
     printf("Size in bytes of <int> GNx: %lu\n", data_size);
@@ -110,7 +159,6 @@ static ERL_NIF_TERM new_gpu_array_nif(ErlNifEnv *env, int argc, const ERL_NIF_TE
       strcat(message, cudaGetErrorString(error_gpu));
       enif_raise_exception(env, enif_make_string(env, message, ERL_NIF_LATIN1));
     }
-
     // END CUDA CALL
 
     // printf("pointer %p\n",dev_array);
@@ -222,8 +270,6 @@ static ERL_NIF_TERM get_gpu_array_nif(ErlNifEnv *env, int argc, const ERL_NIF_TE
     ptr_matrix = result_data;
 
     //// MAKE CUDA CALL
-    // printf("cuda get\n");
-    // printf("pointer %p\n",dev_array);
     cudaMemcpy(ptr_matrix, dev_array_i, data_size, cudaMemcpyDeviceToHost);
     error_gpu = cudaGetLastError();
     if (error_gpu != cudaSuccess)
@@ -233,7 +279,6 @@ static ERL_NIF_TERM get_gpu_array_nif(ErlNifEnv *env, int argc, const ERL_NIF_TE
       strcat(message, cudaGetErrorString(error_gpu));
       enif_raise_exception(env, enif_make_string(env, message, ERL_NIF_LATIN1));
     }
-
     //////// END CUDA CALL
   }
   else if (strcmp(type_name, "double") == 0)
