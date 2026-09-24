@@ -229,13 +229,13 @@ int main(int argc, char const *argv[])
     cudaMalloc((void **)&d_pixelbuffer, size_array);
     auto end_alloc = std::chrono::steady_clock::now();
 
-    auto alloc_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_alloc - start_alloc).count();
+    double alloc_ms = std::chrono::duration<double, std::milli>(end_alloc - start_alloc).count();
 
     j_error = cudaGetLastError();
     if (j_error != cudaSuccess)
         printf("Error 1: %s\n", cudaGetErrorString(j_error));
 
-    printf("Time taken for cudaMalloc: %ld ms\n", alloc_ms);
+    printf("Time taken for cudaMalloc: %f ms\n", alloc_ms);
     ////////
 
     ////////////////////
@@ -262,7 +262,7 @@ int main(int argc, char const *argv[])
     cudaMemcpy(h_pixelbuffer, d_pixelbuffer, size_array, cudaMemcpyDeviceToHost); // return results
     auto end_memcpy = std::chrono::steady_clock::now();
 
-    auto copy_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_memcpy - start_memcpy).count();
+    double copy_ms = std::chrono::duration<double, std::milli>(end_memcpy - start_memcpy).count();
 
     j_error = cudaGetLastError();
     if (j_error != cudaSuccess)
@@ -272,7 +272,7 @@ int main(int argc, char const *argv[])
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time, start, stop);
 
-    printf("Time taken for cudaMemcpy: %ld ms\n", copy_ms);
+    printf("Time taken for cudaMemcpy: %f ms\n", copy_ms);
     printf("CUDA\t%lu\t%3.1f\n", usr_value, time);
 
     genBpm(height, width, h_pixelbuffer);
