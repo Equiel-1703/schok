@@ -54,7 +54,6 @@ Hok.defmodule_rts Julia do
 
   deft(julia_function(arr(integer) ~> integer ~> integer ~> integer ~> unit))
   defd julia_function(ptr, x, y, dim) do
-    # gridDim.x
     offset = x + y * dim
     juliaValue = julia(x, y, dim)
 
@@ -81,8 +80,6 @@ Hok.defmodule_rts Julia do
     IO.puts("IMG size = #{size} x #{size}")
     IO.puts("Grid size = #{grid} | Block size = #{block_size}")
 
-    # IO.puts "grid #{grid}"
-    # Hok.spawn_rts(&Julia.mapgen2D_xy_1para_noret_ker/4,{size,size,1},{1,1,1},[result_gpu,arg1,size,f])
     Hok.spawn_rts(&Julia.mapgen2D_xy_1para_noret_ker/4, {grid, grid, 1}, {16, 16, 1}, [
       result_gpu,
       arg1,
@@ -98,20 +95,27 @@ Hok.include_rts([Julia])
 Hok.set_default_type(:int)
 
 [arg] = System.argv()
+
 m = String.to_integer(arg)
-
 dim = m
-
-# values_per_pixel = 4
 
 prev = System.monotonic_time()
 
+new_gnx_time_start = System.monotonic_time()
 result_gpu = Hok.new_gnx(dim * dim, 4, {:s, 32})
+new_gnx_time_end = System.monotonic_time()
 
-_image =
-  result_gpu
-  |> Julia.mapgen2D_step_xy_1para_noret(dim, dim, &Julia.julia_function/4)
-  |> Hok.get_gnx()
+new_gnx_time = System.convert_time_unit(new_gnx_time_end - new_gnx_time_start, :native, :millisecond)
+IO.puts("new_gnx took: #{new_gnx_time}ms")
+
+Julia.mapgen2D_step_xy_1para_noret(result_gpu, dim, dim, &Julia.julia_function/4)
+
+get_gnx_time_start = System.monotonic_time()
+image = Hok.get_gnx(result_gpu)
+get_gnx_time_end = System.monotonic_time()
+
+get_gnx_time = System.convert_time_unit(get_gnx_time_end - get_gnx_time_start, :native, :millisecond)
+IO.puts("get_gnx took: #{get_gnx_time}ms")
 
 Hok.end_hok()
 
@@ -119,4 +123,9 @@ next = System.monotonic_time()
 
 IO.puts("Hok\t#{dim}\t#{System.convert_time_unit(next - prev, :native, :millisecond)}")
 
-# BMP.gen_bmp_int('juliaske.bmp',dim,image)
+# Artificial dependencies on 'image'
+foo = image[0][0] |> Nx.to_number()
+foo_2 = image[0][1] |> Nx.to_number()
+_bar = foo + foo_2
+
+BMP.gen_bmp_int(to_charlist("julia_schok.bmp"), dim, image)
