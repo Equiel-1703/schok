@@ -1,3 +1,8 @@
+Application.put_env(:exla, :clients,
+  host: [platform: :host],
+  cuda: [platform: :cuda, preallocate: false, default_device_id: 0]
+)
+
 Nx.global_default_backend(EXLA.Backend)
 Nx.Defn.global_default_options(compiler: EXLA, client: :cuda)
 
