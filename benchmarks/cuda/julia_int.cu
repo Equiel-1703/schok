@@ -249,7 +249,13 @@ int main(int argc, char const *argv[])
 
     printf("Launching kernel with grid (%d,%d) and block (%d,%d)\n", grid.x, grid.y, block.x, block.y);
 
+    auto start_kernel = std::chrono::steady_clock::now();
     mapgen2D_xy_1para_noret_ker<<<grid, block>>>(d_pixelbuffer, DIM, DIM, f);
+    cudaDeviceSynchronize();
+    auto end_kernel = std::chrono::steady_clock::now();
+
+    double kernel_ms = std::chrono::duration<double, std::milli>(end_kernel - start_kernel).count();
+    printf("Time taken for kernel execution: %f ms\n", kernel_ms);
 
     j_error = cudaGetLastError();
     if (j_error != cudaSuccess)
@@ -274,6 +280,7 @@ int main(int argc, char const *argv[])
 
     printf("Time taken for cudaMemcpy: %f ms\n", copy_ms);
     printf("CUDA\t%lu\t%3.1f\n", usr_value, time);
+    printf("Total time (chrono): %f ms\n", alloc_ms + kernel_ms + copy_ms);
 
     genBpm(height, width, h_pixelbuffer);
 
