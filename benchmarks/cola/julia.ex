@@ -99,8 +99,6 @@ Hok.set_default_type(:int)
 m = String.to_integer(arg)
 dim = m
 
-prev = System.monotonic_time()
-
 new_gnx_time_start = System.monotonic_time()
 result_gpu = Hok.new_gnx(dim * dim, 4, {:s, 32})
 new_gnx_time_end = System.monotonic_time()
@@ -108,7 +106,13 @@ new_gnx_time_end = System.monotonic_time()
 new_gnx_time = System.convert_time_unit(new_gnx_time_end - new_gnx_time_start, :native, :millisecond)
 IO.puts("new_gnx took: #{new_gnx_time}ms")
 
+kernel_prev = System.monotonic_time()
 Julia.mapgen2D_step_xy_1para_noret(result_gpu, dim, dim, &Julia.julia_function/4)
+Hok.synchronize()
+kernel_next = System.monotonic_time()
+
+kernel_time = System.convert_time_unit(kernel_next - kernel_prev, :native, :millisecond)
+IO.puts("kernel took: #{kernel_time}ms")
 
 get_gnx_time_start = System.monotonic_time()
 image = Hok.get_gnx(result_gpu)
@@ -119,9 +123,7 @@ IO.puts("get_gnx took: #{get_gnx_time}ms")
 
 Hok.end_hok()
 
-next = System.monotonic_time()
-
-IO.puts("Hok\t#{dim}\t#{System.convert_time_unit(next - prev, :native, :millisecond)}")
+IO.puts("Hok\t#{dim}\t#{kernel_time + new_gnx_time + get_gnx_time}")
 
 # Artificial dependencies on 'image'
 foo = image[0][0] |> Nx.to_number()
