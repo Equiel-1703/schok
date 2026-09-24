@@ -7,6 +7,8 @@
 #include <dlfcn.h>
 #include <string.h>
 
+#include <chrono>
+
 #define _bitsperpixel 32
 #define _planes 1
 #define _compression 0
@@ -53,7 +55,7 @@ void genBpm(int h, int w, int *pb)
     uint32_t height = (uint32_t)h;
     uint32_t width = (uint32_t)w;
 
-    char *file_name = (char *)"julia.bmp";
+    char *file_name = (char *)"julia_cuda.bmp";
     uint32_t pixelbytesize = height * width * _bitsperpixel / 8;
     uint32_t _filesize = pixelbytesize + sizeof(bitmap);
     FILE *fp = fopen(file_name, "wb");
@@ -151,8 +153,56 @@ __global__ void mapgen2D_xy_1para_noret_ker(int *resp, int arg1, int size, void 
     }
 }
 
+void print_gpu_info()
+{
+    int deviceCount = 0;
+    cudaGetDeviceCount(&deviceCount);
+
+    if (deviceCount == 0)
+    {
+        printf("No CUDA-capable devices found.\n");
+        return;
+    }
+
+    int driverVersion = 0, runtimeVersion = 0;
+    cudaDriverGetVersion(&driverVersion);
+    cudaRuntimeGetVersion(&runtimeVersion);
+
+    printf("CUDA Driver Version:  %d.%d\n", driverVersion / 1000, (driverVersion % 100) / 10);
+    printf("CUDA Runtime Version: %d.%d\n", runtimeVersion / 1000, (runtimeVersion % 100) / 10);
+    printf("Total Devices:        %d\n\n", deviceCount);
+
+    // 2. Iterate through each GPU and get properties
+    for (int dev = 0; dev < deviceCount; ++dev)
+    {
+        cudaDeviceProp prop;
+        cudaGetDeviceProperties(&prop, dev);
+        cudaSetDevice(dev);
+
+        size_t freeMem = 0, totalMem = 0;
+        cudaMemGetInfo(&freeMem, &totalMem);
+
+        printf("================ Device %d: %s ================\n", dev, prop.name);
+        printf("Compute Capability:       %d.%d\n", prop.major, prop.minor);
+        printf("Total Global Memory:      %.2f GB (%zu bytes)\n", (double)prop.totalGlobalMem / (1024 * 1024 * 1024), prop.totalGlobalMem);
+        printf("Free Global Memory:       %.2f GB (%zu bytes)\n", (double)freeMem / (1024 * 1024 * 1024), freeMem);
+        printf("Multiprocessors (SMs):    %d\n", prop.multiProcessorCount);
+        printf("Max Threads per Block:    %d\n", prop.maxThreadsPerBlock);
+        printf("Max Threads per SM:       %d\n", prop.maxThreadsPerMultiProcessor);
+        printf("Warp Size:                %d\n", prop.warpSize);
+        printf("Shared Memory per Block:  %.2f KB\n", (double)prop.sharedMemPerBlock / 1024.0);
+        printf("Memory Bus Width:         %d-bit\n", prop.memoryBusWidth);
+        printf("L2 Cache Size:            %.2f MB\n\n", (double)prop.l2CacheSize / (1024.0 * 1024.0));
+    }
+
+    // Set device 0 as the default device for subsequent CUDA operations
+    cudaSetDevice(0);
+}
+
 int main(int argc, char const *argv[])
 {
+    print_gpu_info();
+
     size_t usr_value = (size_t)atol(argv[1]);
 
     size_t height, width, DIM;
@@ -175,10 +225,17 @@ int main(int argc, char const *argv[])
     cudaEventRecord(start, 0);
 
     ////////
+    auto start_memcpy = std::chrono::steady_clock::now();
     cudaMalloc((void **)&d_pixelbuffer, size_array);
+    auto end_memcpy = std::chrono::steady_clock::now();
+
+    auto copy_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_memcpy - start_memcpy).count();
+
     j_error = cudaGetLastError();
     if (j_error != cudaSuccess)
         printf("Error 1: %s\n", cudaGetErrorString(j_error));
+
+    printf("Time taken for cudaMemcpy: %ld ms\n", copy_ms);
     ////////
 
     ////////////////////
@@ -201,7 +258,12 @@ int main(int argc, char const *argv[])
 
     int *h_pixelbuffer = (int *)malloc(size_array);
 
+    auto start_memcpy = std::chrono::steady_clock::now();
     cudaMemcpy(h_pixelbuffer, d_pixelbuffer, size_array, cudaMemcpyDeviceToHost); // return results
+    auto end_memcpy = std::chrono::steady_clock::now();
+
+    auto copy_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_memcpy - start_memcpy).count();
+
     j_error = cudaGetLastError();
     if (j_error != cudaSuccess)
         printf("Error 7: %s\n", cudaGetErrorString(j_error));
@@ -210,9 +272,10 @@ int main(int argc, char const *argv[])
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time, start, stop);
 
+    printf("Time taken for cudaMemcpy: %ld ms\n", copy_ms);
     printf("CUDA\t%lu\t%3.1f\n", usr_value, time);
 
-    // genBpm(height,width,h_pixelbuffer);
+    genBpm(height, width, h_pixelbuffer);
 
     free(h_pixelbuffer);
     cudaFree(d_pixelbuffer);
