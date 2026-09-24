@@ -155,6 +155,11 @@ __global__ void mapgen2D_xy_1para_noret_ker(int *resp, int arg1, int size, void 
 
 void print_gpu_info()
 {
+    int originalDevice = -1;
+    cudaGetDevice(&originalDevice);
+
+    printf("Selected Device: %d\n", originalDevice);
+
     int deviceCount = 0;
     cudaGetDeviceCount(&deviceCount);
 
@@ -195,8 +200,8 @@ void print_gpu_info()
         printf("L2 Cache Size:            %.2f MB\n\n", (double)prop.l2CacheSize / (1024.0 * 1024.0));
     }
 
-    // Set device 0 as the default device for subsequent CUDA operations
-    cudaSetDevice(0);
+    // Set device back to the original device before leaving
+    cudaSetDevice(originalDevice);
 }
 
 int main(int argc, char const *argv[])
