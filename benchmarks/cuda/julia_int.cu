@@ -225,17 +225,17 @@ int main(int argc, char const *argv[])
     cudaEventRecord(start, 0);
 
     ////////
-    auto start_memcpy = std::chrono::steady_clock::now();
+    auto start_alloc = std::chrono::steady_clock::now();
     cudaMalloc((void **)&d_pixelbuffer, size_array);
-    auto end_memcpy = std::chrono::steady_clock::now();
+    auto end_alloc = std::chrono::steady_clock::now();
 
-    auto copy_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_memcpy - start_memcpy).count();
+    auto alloc_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_alloc - start_alloc).count();
 
     j_error = cudaGetLastError();
     if (j_error != cudaSuccess)
         printf("Error 1: %s\n", cudaGetErrorString(j_error));
 
-    printf("Time taken for cudaMemcpy: %ld ms\n", copy_ms);
+    printf("Time taken for cudaMalloc: %ld ms\n", alloc_ms);
     ////////
 
     ////////////////////
