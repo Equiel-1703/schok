@@ -8,13 +8,18 @@
 // For debug purposes only
 void print_gpu_info()
 {
+  int originalDevice = -1;
+  cudaGetDevice(&originalDevice);
+
+  printf("Selected Device: %d\n", originalDevice);
+
   int deviceCount = 0;
   cudaGetDeviceCount(&deviceCount);
 
   if (deviceCount == 0)
   {
-      printf("No CUDA-capable devices found.\n");
-      return;
+    printf("No CUDA-capable devices found.\n");
+    return;
   }
 
   int driverVersion = 0, runtimeVersion = 0;
@@ -28,28 +33,28 @@ void print_gpu_info()
   // 2. Iterate through each GPU and get properties
   for (int dev = 0; dev < deviceCount; ++dev)
   {
-      cudaDeviceProp prop;
-      cudaGetDeviceProperties(&prop, dev);
-      cudaSetDevice(dev);
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, dev);
+    cudaSetDevice(dev);
 
-      size_t freeMem = 0, totalMem = 0;
-      cudaMemGetInfo(&freeMem, &totalMem);
+    size_t freeMem = 0, totalMem = 0;
+    cudaMemGetInfo(&freeMem, &totalMem);
 
-      printf("================ Device %d: %s ================\n", dev, prop.name);
-      printf("Compute Capability:       %d.%d\n", prop.major, prop.minor);
-      printf("Total Global Memory:      %.2f GB (%zu bytes)\n", (double)prop.totalGlobalMem / (1024 * 1024 * 1024), prop.totalGlobalMem);
-      printf("Free Global Memory:       %.2f GB (%zu bytes)\n", (double)freeMem / (1024 * 1024 * 1024), freeMem);
-      printf("Multiprocessors (SMs):    %d\n", prop.multiProcessorCount);
-      printf("Max Threads per Block:    %d\n", prop.maxThreadsPerBlock);
-      printf("Max Threads per SM:       %d\n", prop.maxThreadsPerMultiProcessor);
-      printf("Warp Size:                %d\n", prop.warpSize);
-      printf("Shared Memory per Block:  %.2f KB\n", (double)prop.sharedMemPerBlock / 1024.0);
-      printf("Memory Bus Width:         %d-bit\n", prop.memoryBusWidth);
-      printf("L2 Cache Size:            %.2f MB\n\n", (double)prop.l2CacheSize / (1024.0 * 1024.0));
+    printf("================ Device %d: %s ================\n", dev, prop.name);
+    printf("Compute Capability:       %d.%d\n", prop.major, prop.minor);
+    printf("Total Global Memory:      %.2f GB (%zu bytes)\n", (double)prop.totalGlobalMem / (1024 * 1024 * 1024), prop.totalGlobalMem);
+    printf("Free Global Memory:       %.2f GB (%zu bytes)\n", (double)freeMem / (1024 * 1024 * 1024), freeMem);
+    printf("Multiprocessors (SMs):    %d\n", prop.multiProcessorCount);
+    printf("Max Threads per Block:    %d\n", prop.maxThreadsPerBlock);
+    printf("Max Threads per SM:       %d\n", prop.maxThreadsPerMultiProcessor);
+    printf("Warp Size:                %d\n", prop.warpSize);
+    printf("Shared Memory per Block:  %.2f KB\n", (double)prop.sharedMemPerBlock / 1024.0);
+    printf("Memory Bus Width:         %d-bit\n", prop.memoryBusWidth);
+    printf("L2 Cache Size:            %.2f MB\n\n", (double)prop.l2CacheSize / (1024.0 * 1024.0));
   }
 
-  // Set device 0 as the default device for subsequent CUDA operations
-  cudaSetDevice(0);
+  // Set device back to the original device before leaving
+  cudaSetDevice(originalDevice);
 }
 
 #define MX_ROWS(matrix) (((uint32_t *)matrix)[0])
@@ -78,6 +83,8 @@ void dev_pinned_array_destructor(ErlNifEnv *env, void *res)
 static int
 load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
 {
+  print_gpu_info();
+
   LIB_TYPE =
       enif_open_resource_type(env, NULL, "LIB", NULL, ERL_NIF_RT_CREATE, NULL);
   KERNEL_TYPE =
@@ -125,7 +132,6 @@ static ERL_NIF_TERM new_gpu_array_nif(ErlNifEnv *env, int argc, const ERL_NIF_TE
 
   if (strcmp(type_name, "float") == 0)
   {
-
     data_size = sizeof(float) * nrow * ncol;
 
     //// MAKE CUDA CALL
@@ -143,8 +149,6 @@ static ERL_NIF_TERM new_gpu_array_nif(ErlNifEnv *env, int argc, const ERL_NIF_TE
   }
   else if (strcmp(type_name, "int") == 0)
   {
-    print_gpu_info();
-    
     data_size = sizeof(int) * nrow * ncol;
 
     printf("Size in bytes of <int> GNx: %lu\n", data_size);
@@ -1129,9 +1133,9 @@ static ERL_NIF_TERM spawn_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 }
 
 static ErlNifFunc nif_funcs[] = {
-    {"get_gpu_array_nif", 4, get_gpu_array_nif}, // ok
+    {"get_gpu_array_nif", 4, get_gpu_array_nif},             // ok
     {"create_gpu_array_nx_nif", 4, create_gpu_array_nx_nif}, // ok
-    {"new_gpu_array_nif", 3, new_gpu_array_nif}, // ok
+    {"new_gpu_array_nif", 3, new_gpu_array_nif},             // ok
     {"load_kernel_from_lib_nif", 3, load_kernel_from_lib_nif},
     {"load_fun_from_lib_nif", 3, load_fun_from_lib_nif},
     {"load_kernel_nif", 2, load_kernel_nif},
