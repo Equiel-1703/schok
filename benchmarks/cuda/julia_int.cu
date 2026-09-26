@@ -206,9 +206,30 @@ void print_gpu_info()
 
 int main(int argc, char const *argv[])
 {
+    if (argc < 2)
+    {
+        printf("Usage: %s <image_dimension> [align|zero]\n", argv[0]);
+        return 1;
+    }
+
+    bool test_alignement = false;
+    bool test_zero_fill = false;
+
     print_gpu_info();
 
     size_t usr_value = (size_t)atol(argv[1]);
+
+    if (argc > 2)
+    {
+        if (strcmp(argv[2], "align") == 0)
+        {
+            test_alignement = true;
+        }
+        else if (strcmp(argv[2], "zero") == 0)
+        {
+            test_zero_fill = true;
+        }
+    }
 
     size_t height, width, DIM;
     height = width = DIM = usr_value;
@@ -267,9 +288,29 @@ int main(int argc, char const *argv[])
         printf("Error 3: %s\n", cudaGetErrorString(j_error));
     ////////
 
-    int *h_pixelbuffer = (int *)malloc(size_array);
+    int *h_pixelbuffer = nullptr;
+    if (test_zero_fill)
+    {
+        printf("Zero-filling host buffer before cudaMemcpy\n");
+        h_pixelbuffer = (int *)malloc(size_array);
+        memset(h_pixelbuffer, 0, size_array); // pre-fault every page, untimed
+    }
 
     auto start_memcpy = std::chrono::steady_clock::now();
+
+    if (test_alignement)
+    {
+        printf("Using posix_memalign for host buffer\n");
+        // Align to 2 MB (typical huge-page size on Linux)
+        const size_t alignment = 2 * 1024 * 1024;
+        posix_memalign((void **)&h_pixelbuffer, alignment, size_array);
+    }
+    else
+    {
+        printf("Using standard malloc for host buffer\n");
+        h_pixelbuffer = (int *)malloc(size_array);
+    }
+
     cudaMemcpy(h_pixelbuffer, d_pixelbuffer, size_array, cudaMemcpyDeviceToHost); // return results
     auto end_memcpy = std::chrono::steady_clock::now();
 
