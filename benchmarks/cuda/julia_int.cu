@@ -331,7 +331,8 @@ int main(int argc, char const *argv[])
         int warm_host_val;
 
         auto start_host_alloc = std::chrono::steady_clock::now();
-        cudaMemcpyFromSymbol(&warm_host_val, warm_symbol, sizeof(int));  // tiny, untimed warm-up
+        cudaMemcpyFromSymbol(&warm_host_val, warm_symbol, sizeof(int));
+        cudaMemcpyFromSymbol(&warm_host_val, warm_symbol, sizeof(int));
         h_pixelbuffer = (int *)malloc(size_array);
         auto end_host_alloc = std::chrono::steady_clock::now();
 
