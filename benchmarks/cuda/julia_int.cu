@@ -205,11 +205,13 @@ void print_gpu_info()
     cudaSetDevice(originalDevice);
 }
 
+__device__ int warm_symbol = 0;
+
 int main(int argc, char const *argv[])
 {
     if (argc < 2)
     {
-        printf("Usage: %s <image_dimension> [memset|align]\n", argv[0]);
+        printf("Usage: %s <image_dimension> [memset|align|symbol]\n", argv[0]);
         return 1;
     }
 
@@ -217,6 +219,7 @@ int main(int argc, char const *argv[])
 
     bool test_memset = false;
     bool test_align = false;
+    bool test_warmup_symbol = false;
     size_t usr_value = (size_t)atol(argv[1]);
 
     if (argc > 2)
@@ -228,6 +231,10 @@ int main(int argc, char const *argv[])
         else if (strcmp(argv[2], "align") == 0)
         {
             test_align = true;
+        }
+        else if (strcmp(argv[2], "symbol") == 0)
+        {
+            test_warmup_symbol = true;
         }
     }
 
@@ -316,6 +323,20 @@ int main(int argc, char const *argv[])
 
         host_alloc_ms = std::chrono::duration<double, std::milli>(end_align - start_align).count();
         printf("Time taken to allocate aligned host buffer: %f ms\n", host_alloc_ms);
+    }
+    else if (test_warmup_symbol)
+    {
+        printf("Warming up symbol before cudaMemcpy\n");
+
+        int warm_host_val;
+
+        auto start_host_alloc = std::chrono::steady_clock::now();
+        cudaMemcpyFromSymbol(&warm_host_val, warm_symbol, sizeof(int));  // tiny, untimed warm-up
+        h_pixelbuffer = (int *)malloc(size_array);
+        auto end_host_alloc = std::chrono::steady_clock::now();
+
+        host_alloc_ms = std::chrono::duration<double, std::milli>(end_host_alloc - start_host_alloc).count();
+        printf("Time taken to allocate host buffer + warmup symbol: %f ms\n", host_alloc_ms);
     }
     else
     {
