@@ -6,10 +6,10 @@
 
 #include <math.h>
 #include <dlfcn.h>
-#include <string.h>
 
 #include <chrono>
 #include <sched.h>
+#include <time.h>
 
 #define _bitsperpixel 32
 #define _planes 1
@@ -154,7 +154,7 @@ __global__ void mapgen2D_xy_1para_noret_ker(int *resp, int arg1, int size, void 
         f(resp, x, y, arg1);
     }
 }
-
+// ------------ debug stuff ------------
 void print_gpu_info()
 {
     int originalDevice = -1;
@@ -206,21 +206,47 @@ void print_gpu_info()
     cudaSetDevice(originalDevice);
 }
 
-// debug
-void print_cpu_freq(const char *label) {
+void print_cpu_freq(const char *label)
+{
     int cpu = sched_getcpu();
     char path[256];
     snprintf(path, sizeof(path),
              "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpu);
     FILE *f = fopen(path, "r");
-    if (f) {
+    if (f)
+    {
         long khz;
         fscanf(f, "%ld", &khz);
         printf("[%s] running on CPU %d at %.2f MHz\n", label, cpu, khz / 1000.0);
         fclose(f);
-    } else {
+    }
+    else
+    {
         perror("cpufreq");
     }
+}
+
+void pin_to_cpu(int cpu)
+{
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(cpu, &cpuset);
+    sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
+}
+
+void busy_warmup(double ms)
+{
+    struct timespec start, now;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    volatile double x = 0.0001;
+    do
+    {
+        for (int i = 0; i < 100000; i++)
+        {
+            x = x * 1.0000001 + 0.0000001;
+        }
+        clock_gettime(CLOCK_MONOTONIC, &now);
+    } while ((now.tv_sec - start.tv_sec) * 1000.0 + (now.tv_nsec - start.tv_nsec) / 1e6 < ms);
 }
 
 int main(int argc, char const *argv[])
@@ -311,16 +337,6 @@ int main(int argc, char const *argv[])
         printf("Error 3: %s\n", cudaGetErrorString(j_error));
     ////////
 
-    if (test_warmup)
-    {
-        printf("Performing CUDA warmup before H2D copy...\n");
-        
-        // Untimed: a full-size warm-up copy into a throwaway buffer
-        int *warm_dst = (int *)malloc(size_array);
-        cudaMemcpy(warm_dst, d_pixelbuffer, size_array, cudaMemcpyDeviceToHost);
-        free(warm_dst);
-    }
-    
     int *h_pixelbuffer = nullptr;
 
     double host_alloc_ms = 0.0;
@@ -362,8 +378,17 @@ int main(int argc, char const *argv[])
         printf("Time taken to allocate host buffer: %f ms\n", host_alloc_ms);
     }
 
+    if (test_warmup)
+    {
+        printf("Performing 300ms CPU warmup before cudaMemcpy...\n");
+
+        int cpu = sched_getcpu();
+        pin_to_cpu(cpu);
+
+        busy_warmup(300.0); // Warm up for 300 ms
+    }
     print_cpu_freq("before cudaMemcpy");
-    
+
     auto start_memcpy = std::chrono::steady_clock::now();
     cudaMemcpy(h_pixelbuffer, d_pixelbuffer, size_array, cudaMemcpyDeviceToHost); // return results
     auto end_memcpy = std::chrono::steady_clock::now();
