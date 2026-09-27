@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <dlfcn.h>
 
+#include <sched.h>
+
 // For debug purposes only
 static void print_gpu_info()
 {
@@ -55,6 +57,22 @@ static void print_gpu_info()
 
   // Set device back to the original device before leaving
   cudaSetDevice(originalDevice);
+}
+
+static void print_cpu_freq(const char *label) {
+    int cpu = sched_getcpu();
+    char path[256];
+    snprintf(path, sizeof(path),
+             "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpu);
+    FILE *f = fopen(path, "r");
+    if (f) {
+        long khz;
+        fscanf(f, "%ld", &khz);
+        printf("[%s] running on CPU %d at %.2f MHz\n", label, cpu, khz / 1000.0);
+        fclose(f);
+    } else {
+        perror("cpufreq");
+    }
 }
 
 #define MX_ROWS(matrix) (((uint32_t *)matrix)[0])
@@ -276,6 +294,7 @@ static ERL_NIF_TERM get_gpu_array_nif(ErlNifEnv *env, int argc, const ERL_NIF_TE
     printf("ptr=%p, offset from 2MB boundary = %ld\n", (void *)ptr_matrix, (u_long)ptr_matrix % (u_long)(2 * 1024 * 1024));
 
     //// MAKE CUDA CALL
+    print_cpu_freq("before cudaMemcpy");
     cudaMemcpy(ptr_matrix, dev_array_i, data_size, cudaMemcpyDeviceToHost);
     error_gpu = cudaGetLastError();
     if (error_gpu != cudaSuccess)

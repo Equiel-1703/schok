@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include <chrono>
+#include <sched.h>
 
 #define _bitsperpixel 32
 #define _planes 1
@@ -205,6 +206,23 @@ void print_gpu_info()
     cudaSetDevice(originalDevice);
 }
 
+// debug
+void print_cpu_freq(const char *label) {
+    int cpu = sched_getcpu();
+    char path[256];
+    snprintf(path, sizeof(path),
+             "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpu);
+    FILE *f = fopen(path, "r");
+    if (f) {
+        long khz;
+        fscanf(f, "%ld", &khz);
+        printf("[%s] running on CPU %d at %.2f MHz\n", label, cpu, khz / 1000.0);
+        fclose(f);
+    } else {
+        perror("cpufreq");
+    }
+}
+
 int main(int argc, char const *argv[])
 {
     if (argc < 2)
@@ -344,6 +362,8 @@ int main(int argc, char const *argv[])
         printf("Time taken to allocate host buffer: %f ms\n", host_alloc_ms);
     }
 
+    print_cpu_freq("before cudaMemcpy");
+    
     auto start_memcpy = std::chrono::steady_clock::now();
     cudaMemcpy(h_pixelbuffer, d_pixelbuffer, size_array, cudaMemcpyDeviceToHost); // return results
     auto end_memcpy = std::chrono::steady_clock::now();
