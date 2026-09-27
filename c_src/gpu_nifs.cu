@@ -57,23 +57,6 @@ static void print_gpu_info()
   cudaSetDevice(originalDevice);
 }
 
-static void print_mem_stats(const char *label)
-{
-  FILE *f = fopen("/proc/self/smaps_rollup", "r");
-  if (!f)
-  {
-    perror("smaps_rollup");
-    return;
-  }
-  char line[256];
-  while (fgets(line, sizeof(line), f))
-  {
-    if (!strncmp(line, "Rss:", 4))
-      printf("[%s] %s", label, line);
-  }
-  fclose(f);
-}
-
 #define MX_ROWS(matrix) (((uint32_t *)matrix)[0])
 #define MX_COLS(matrix) (((uint32_t *)matrix)[1])
 #define MX_SET_ROWS(matrix, rows) ((uint32_t *)matrix)[0] = rows
@@ -287,8 +270,6 @@ static ERL_NIF_TERM get_gpu_array_nif(ErlNifEnv *env, int argc, const ERL_NIF_TE
     size_t data_size = sizeof(int) * nrow * ncol;
     int *result_data = (int *)enif_make_new_binary(env, result_size, &result);
 
-    print_mem_stats("after enif_make_new_binary");
-
     int *ptr_matrix;
     ptr_matrix = result_data;
 
@@ -304,7 +285,6 @@ static ERL_NIF_TERM get_gpu_array_nif(ErlNifEnv *env, int argc, const ERL_NIF_TE
       strcat(message, cudaGetErrorString(error_gpu));
       enif_raise_exception(env, enif_make_string(env, message, ERL_NIF_LATIN1));
     }
-    print_mem_stats("after cudaMemcpy");
     //////// END CUDA CALL
   }
   else if (strcmp(type_name, "double") == 0)
