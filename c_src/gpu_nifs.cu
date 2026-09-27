@@ -273,6 +273,8 @@ static ERL_NIF_TERM get_gpu_array_nif(ErlNifEnv *env, int argc, const ERL_NIF_TE
     int *ptr_matrix;
     ptr_matrix = result_data;
 
+    printf("ptr=%p, offset from 2MB boundary = %ld\n", (void*)ptr_matrix, (u_long)ptr_matrix % (u_long)(2*1024*1024));
+
     //// MAKE CUDA CALL
     cudaMemcpy(ptr_matrix, dev_array_i, data_size, cudaMemcpyDeviceToHost);
     error_gpu = cudaGetLastError();
