@@ -234,17 +234,17 @@ void pin_to_cpu(int cpu)
     sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
 }
 
-void busy_warmup(double ms)
-{
+void busy_warmup(double ms) {
     struct timespec start, now;
     clock_gettime(CLOCK_MONOTONIC, &start);
-    volatile double x = 0.0001;
-    do
-    {
-        for (int i = 0; i < 100000; i++)
-        {
-            x = x * 1.0000001 + 0.0000001;
+    double a[8] = {1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8};
+    do {
+        for (int i = 0; i < 1000000; i++) {
+            for (int j = 0; j < 8; j++)
+                a[j] = a[j] * 1.0000001 + 0.0000001;
         }
+        asm volatile("" : : "r"(a[0]), "r"(a[7]) : "memory");  // stop the compiler deleting it
+                                                                  // but let the inner loop vectorize freely
         clock_gettime(CLOCK_MONOTONIC, &now);
     } while ((now.tv_sec - start.tv_sec) * 1000.0 + (now.tv_nsec - start.tv_nsec) / 1e6 < ms);
 }
@@ -380,14 +380,15 @@ int main(int argc, char const *argv[])
 
     if (test_warmup)
     {
-        print_cpu_freq("before warmup");
-
-        printf("Performing 600ms CPU warmup before cudaMemcpy...\n");
+        printf("Performing 300ms CPU warmup before cudaMemcpy...\n");
 
         int cpu = sched_getcpu();
         pin_to_cpu(cpu);
 
-        busy_warmup(600.0);
+        for (int t = 0; t < 3; t++) {
+            busy_warmup(100.0);
+            print_cpu_freq("mid-warmup");
+        }
     }
     print_cpu_freq("before cudaMemcpy");
 
