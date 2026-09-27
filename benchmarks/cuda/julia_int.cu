@@ -381,6 +381,7 @@ int main(int argc, char const *argv[])
     if (test_warmup)
     {
         printf("Performing 300ms CPU warmup before cudaMemcpy...\n");
+        print_cpu_freq("before-warmup");
 
         int cpu = sched_getcpu();
         pin_to_cpu(cpu);
