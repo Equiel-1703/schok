@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <malloc.h>
+#include <sys/mman.h>
 
 #include <math.h>
 #include <dlfcn.h>
@@ -208,13 +209,14 @@ int main(int argc, char const *argv[])
 {
     if (argc < 2)
     {
-        printf("Usage: %s <image_dimension> [memset]\n", argv[0]);
+        printf("Usage: %s <image_dimension> [memset|align]\n", argv[0]);
         return 1;
     }
 
     print_gpu_info();
-    
+
     bool test_memset = false;
+    bool test_align = false;
     size_t usr_value = (size_t)atol(argv[1]);
 
     if (argc > 2)
@@ -222,6 +224,10 @@ int main(int argc, char const *argv[])
         if (strcmp(argv[2], "memset") == 0)
         {
             test_memset = true;
+        }
+        else if (strcmp(argv[2], "align") == 0)
+        {
+            test_align = true;
         }
     }
 
@@ -282,19 +288,45 @@ int main(int argc, char const *argv[])
         printf("Error 3: %s\n", cudaGetErrorString(j_error));
     ////////
 
-    int *h_pixelbuffer = (int *)malloc(size_array);
-    
-    double zfill_ms = 0.0;
+    int *h_pixelbuffer = nullptr;
+
+    double host_alloc_ms = 0.0;
     if (test_memset)
     {
         printf("Zero-filling host buffer before cudaMemcpy\n");
 
         auto start_zfill = std::chrono::steady_clock::now();
-        memset(h_pixelbuffer, 0, size_array); // pre-fault every page, untimed
+        h_pixelbuffer = (int *)malloc(size_array);
+        memset(h_pixelbuffer, 0, size_array); // pre-fault every page
         auto end_zfill = std::chrono::steady_clock::now();
-        
-        zfill_ms = std::chrono::duration<double, std::milli>(end_zfill - start_zfill).count();
-        printf("Time taken to zero-fill host buffer: %f ms\n", zfill_ms);
+
+        host_alloc_ms = std::chrono::duration<double, std::milli>(end_zfill - start_zfill).count();
+        printf("Time taken to zero-fill host buffer: %f ms\n", host_alloc_ms);
+    }
+    else if (test_align)
+    {
+        printf("Allocating aligned host buffer before cudaMemcpy\n");
+
+        const size_t alignment = 2 * 1024 * 1024; // 2MB alignment
+
+        auto start_align = std::chrono::steady_clock::now();
+        h_pixelbuffer = (int *)aligned_alloc(alignment, size_array);
+        madvise(h_pixelbuffer, size_array, MADV_HUGEPAGE);
+        auto end_align = std::chrono::steady_clock::now();
+
+        host_alloc_ms = std::chrono::duration<double, std::milli>(end_align - start_align).count();
+        printf("Time taken to allocate aligned host buffer: %f ms\n", host_alloc_ms);
+    }
+    else
+    {
+        printf("Allocating standard buffer before cudaMemcpy\n");
+
+        auto start_host_alloc = std::chrono::steady_clock::now();
+        h_pixelbuffer = (int *)malloc(size_array);
+        auto end_host_alloc = std::chrono::steady_clock::now();
+
+        host_alloc_ms = std::chrono::duration<double, std::milli>(end_host_alloc - start_host_alloc).count();
+        printf("Time taken to allocate host buffer: %f ms\n", host_alloc_ms);
     }
 
     auto start_memcpy = std::chrono::steady_clock::now();
@@ -313,7 +345,7 @@ int main(int argc, char const *argv[])
     cudaEventElapsedTime(&time, start, stop);
 
     printf("CUDA\t%lu\t%3.1f\n", usr_value, time);
-    printf("Total time (chrono): %f ms\n", alloc_ms + kernel_ms + zfill_ms + copy_ms);
+    printf("Total time (chrono): %f ms\n", alloc_ms + kernel_ms + host_alloc_ms + copy_ms);
 
     genBpm(height, width, h_pixelbuffer);
 
