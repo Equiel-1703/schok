@@ -283,18 +283,26 @@ int main(int argc, char const *argv[])
     ////////
 
     int *h_pixelbuffer = (int *)malloc(size_array);
+    
+    double zfill_ms = 0.0;
     if (test_memset)
     {
         printf("Zero-filling host buffer before cudaMemcpy\n");
+
+        auto start_zfill = std::chrono::steady_clock::now();
         memset(h_pixelbuffer, 0, size_array); // pre-fault every page, untimed
+        auto end_zfill = std::chrono::steady_clock::now();
+        
+        zfill_ms = std::chrono::duration<double, std::milli>(end_zfill - start_zfill).count();
+        printf("Time taken to zero-fill host buffer: %f ms\n", zfill_ms);
     }
 
     auto start_memcpy = std::chrono::steady_clock::now();
-
     cudaMemcpy(h_pixelbuffer, d_pixelbuffer, size_array, cudaMemcpyDeviceToHost); // return results
     auto end_memcpy = std::chrono::steady_clock::now();
 
     double copy_ms = std::chrono::duration<double, std::milli>(end_memcpy - start_memcpy).count();
+    printf("Time taken for cudaMemcpy: %f ms\n", copy_ms);
 
     j_error = cudaGetLastError();
     if (j_error != cudaSuccess)
@@ -304,9 +312,8 @@ int main(int argc, char const *argv[])
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time, start, stop);
 
-    printf("Time taken for cudaMemcpy: %f ms\n", copy_ms);
     printf("CUDA\t%lu\t%3.1f\n", usr_value, time);
-    printf("Total time (chrono): %f ms\n", alloc_ms + kernel_ms + copy_ms);
+    printf("Total time (chrono): %f ms\n", alloc_ms + kernel_ms + zfill_ms + copy_ms);
 
     genBpm(height, width, h_pixelbuffer);
 
