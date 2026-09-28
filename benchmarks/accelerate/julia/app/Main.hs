@@ -122,6 +122,7 @@ runOnce :: Int -> IO ()
 runOnce dim = do
   t0     <- getCurrentTime
   result <- evaluate (PTX.run (pixels dim))
+  _ <- evaluate$ (head (A.toList result))
   t1     <- getCurrentTime
 
   let millis = realToFrac (diffUTCTime t1 t0) * 1000 :: Double
