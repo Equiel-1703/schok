@@ -15,17 +15,21 @@
 --     ptr[(x + y*dim)*4 + 2] = 0
 --     ptr[(x + y*dim)*4 + 3] = 255
 --
--- NOTE: element type is Int32 (4 bytes), matching CUDA's `int` exactly.
+-- NOTE on element type: Int32 (4 bytes), matching CUDA's `int` exactly.
 -- Using Accelerate's default `Int` (8 bytes on 64-bit systems) would
--- silently double the device memory footprint versus the CUDA version --
--- for dim=20000 that's 12.8GB vs CUDA's 6.4GB, enough to exhaust GPU
--- memory on one side and not the other, invalidating the comparison
--- (and precisely what caused the "Remote memory exhausted" crash).
+-- silently double the device memory footprint versus the CUDA version.
 --
--- Timing wraps the single call to `PTX.run`, which is where Accelerate
--- allocates device memory, JIT-compiles / launches the kernel, and
--- copies the result back to the host -- the GPU-side work the CUDA
--- program times with cudaEvent start/stop.
+-- NOTE on timing: `evaluate (PTX.run ...)` alone only forces the returned
+-- Array to weak head normal form -- it forces the outer shape/handle, but
+-- is not a hard guarantee that the device->host copy has actually
+-- completed, since Accelerate's LLVM backends represent in-flight GPU
+-- work as an async result that is properly waited on only when the data
+-- is genuinely touched. `seq`/`evaluate` cannot wait on a CUDA stream by
+-- themselves. To make sure the full transfer is included in the timed
+-- region (matching CUDA's synchronous cudaMemcpy + cudaEventSynchronize),
+-- we force the result with `Control.DeepSeq.rnf`, whose Array instance is
+-- written to guarantee real materialization -- this is the pattern
+-- Accelerate's own benchmark suites use for exactly this reason.
 module Main where
 
 import qualified Data.Array.Accelerate           as A
@@ -33,8 +37,9 @@ import           Data.Array.Accelerate           (Acc, Array, DIM3, Exp,
                                                     Z (..), (:.) (..))
 import qualified Data.Array.Accelerate.LLVM.PTX  as PTX
 
-import           Data.Int                        (Int32)
+import           Control.DeepSeq                 (rnf)
 import           Control.Exception               (evaluate)
+import           Data.Int                        (Int32)
 import           Data.Time.Clock                 (diffUTCTime, getCurrentTime)
 import           System.Environment              (getArgs)
 import           System.Exit                     (exitFailure)
@@ -47,9 +52,6 @@ import           Text.Printf                     (printf)
 -- | Mirrors the CUDA __device__ function `julia`: returns 1 if the point
 -- stays bounded for 200 iterations, 0 if it escapes (|z|^2 > 1000) at any
 -- point during those 200 iterations.
---
--- Indices/loop counters stay as (machine) Int -- only the final pixel
--- array element type is narrowed to Int32, to match CUDA's `int` width.
 --
 -- Accelerate has no early `break` inside a device-side loop, so instead of
 -- stopping the loop we track a `diverged` flag: once set, ar/ai are frozen
@@ -93,8 +95,7 @@ julia x y dim =
 -- | Build the DIM x DIM x 4 pixel array. Row-major flattening of a
 -- DIM3 = Z :. Int :. Int :. Int Accelerate array puts the last index
 -- fastest, so element (y,x,c) sits at ((y*dim)+x)*4+c -- identical to
--- the CUDA kernel's ptr[(x + y*dim)*4 + c] layout. Element type is
--- Int32, matching CUDA's `int` (see note above).
+-- the CUDA kernel's ptr[(x + y*dim)*4 + c] layout.
 pixels :: Int -> Acc (Array DIM3 Int32)
 pixels dim =
   A.generate (A.constant (Z :. dim :. dim :. 4)) go
@@ -120,18 +121,22 @@ main = do
 
 runOnce :: Int -> IO ()
 runOnce dim = do
-  t0     <- getCurrentTime
-  result <- evaluate (PTX.run (pixels dim))
-  _ <- evaluate$ (head (A.toList result))
-  t1     <- getCurrentTime
+  t0 <- getCurrentTime
 
+  -- `run` launches the kernel and (in principle) copies the result back.
+  -- We then force the result with `rnf` to guarantee that copy has
+  -- genuinely completed -- not just that we hold a handle to it -- before
+  -- we stop the clock. This is the part that was missing before: without
+  -- it, the measured interval could end before the D2H transfer actually
+  -- finished, making the reported time artificially low.
+  let result = PTX.run (pixels dim)
+  _ <- evaluate (rnf result)
+
+  t1 <- getCurrentTime
   let millis = realToFrac (diffUTCTime t1 t0) * 1000 :: Double
   printf "Accelerate\t%d\t%.1f\n" dim millis
 
   -- Uncomment to sanity-check the output (do this in a *separate* run from
-  -- the one you're timing, since building/printing the list is extra work
-  -- that has no CUDA-side equivalent in the timed region):
+  -- the one you're timing -- building/printing the list is extra work
+  -- with no CUDA-side equivalent in the timed region):
   -- print (A.toList result)
-
-  -- silence unused-variable warning when the line above stays commented
-  result `seq` return ()

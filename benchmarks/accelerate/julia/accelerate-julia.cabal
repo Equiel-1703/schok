@@ -12,5 +12,5 @@ executable accelerate-julia
   build-depends:      base       >=4.14 && <5
                      , accelerate
                      , accelerate-llvm-ptx
-                     , time
                      , deepseq
+                     , time
