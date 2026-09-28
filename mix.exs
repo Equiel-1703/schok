@@ -23,8 +23,8 @@ defmodule Hok.MixProject do
   defp deps do
     [
       {:matrex, "~> 0.6"},
-      {:nx, "~> 0.7.3"},
-      {:exla, "~> 0.7"}
+      {:nx, "~> 0.9"},
+      {:exla, "~> 0.9"}
     ]
   end
 end
