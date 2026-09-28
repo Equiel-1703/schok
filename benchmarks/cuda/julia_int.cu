@@ -170,10 +170,10 @@ int main( int argc, char const *argv[] ) {
 
     int usr_value = atoi(argv[1]);
    
-    int height = usr_value;
-    int width  = usr_value;
-    int DIM = usr_value;
-    int size_array = height*width*4*sizeof(int);
+    size_t height = usr_value;
+    size_t width  = usr_value;
+    size_t DIM = usr_value;
+    size_t size_array = height*width*4*sizeof(int);
     cudaError_t j_error;
     
     //int pixelbytesize=  height*width*_bitsperpixel/8;
@@ -226,7 +226,7 @@ dim3 grid((DIM + block.x - 1) / block.x, (DIM + block.y - 1) / block.y);
 
     printf("CUDA\t%d\t%3.1f\n", usr_value,time);
     
-   // genBpm(height,width,h_pixelbuffer);
+   genBpm(height,width,h_pixelbuffer);
 
    
     free(h_pixelbuffer);
