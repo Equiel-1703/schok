@@ -7,24 +7,25 @@
 -- Accelerate re-implementation of the CUDA julia.cu program.
 --
 -- Computes a DIM x DIM Julia-set image, one pixel represented as four
--- consecutive Ints (r,g,b,a) in a flat array, exactly mirroring the
--- memory layout produced by the CUDA kernel:
+-- consecutive Int32s (r,g,b,a) in a flat array, exactly mirroring the
+-- memory layout AND element width produced by the CUDA kernel:
 --
 --     ptr[(x + y*dim)*4 + 0] = 255 * juliaValue(x,y)
 --     ptr[(x + y*dim)*4 + 1] = 0
 --     ptr[(x + y*dim)*4 + 2] = 0
 --     ptr[(x + y*dim)*4 + 3] = 255
 --
+-- NOTE: element type is Int32 (4 bytes), matching CUDA's `int` exactly.
+-- Using Accelerate's default `Int` (8 bytes on 64-bit systems) would
+-- silently double the device memory footprint versus the CUDA version --
+-- for dim=20000 that's 12.8GB vs CUDA's 6.4GB, enough to exhaust GPU
+-- memory on one side and not the other, invalidating the comparison
+-- (and precisely what caused the "Remote memory exhausted" crash).
+--
 -- Timing wraps the single call to `PTX.run`, which is where Accelerate
 -- allocates device memory, JIT-compiles / launches the kernel, and
 -- copies the result back to the host -- the GPU-side work the CUDA
 -- program times with cudaEvent start/stop.
---
--- NOTE on element type: this uses Accelerate's default `Int` (64-bit on
--- most systems) rather than a 32-bit type, matching CUDA's `int` only
--- in *value*, not bit-width. If you need exact 32-bit parity, change
--- every `Int` below (except loop counters/indices, which are fine as
--- `Int`) to `Data.Int.Int32` and add `import Data.Int (Int32)`.
 module Main where
 
 import qualified Data.Array.Accelerate           as A
@@ -32,12 +33,12 @@ import           Data.Array.Accelerate           (Acc, Array, DIM3, Exp,
                                                     Z (..), (:.) (..))
 import qualified Data.Array.Accelerate.LLVM.PTX  as PTX
 
+import           Data.Int                        (Int32)
 import           Control.Exception               (evaluate)
 import           Data.Time.Clock                 (diffUTCTime, getCurrentTime)
 import           System.Environment              (getArgs)
 import           System.Exit                     (exitFailure)
 import           Text.Printf                     (printf)
-import Control.DeepSeq (deepseq)
 
 --------------------------------------------------------------------------------
 -- Julia set escape test
@@ -47,11 +48,14 @@ import Control.DeepSeq (deepseq)
 -- stays bounded for 200 iterations, 0 if it escapes (|z|^2 > 1000) at any
 -- point during those 200 iterations.
 --
+-- Indices/loop counters stay as (machine) Int -- only the final pixel
+-- array element type is narrowed to Int32, to match CUDA's `int` width.
+--
 -- Accelerate has no early `break` inside a device-side loop, so instead of
 -- stopping the loop we track a `diverged` flag: once set, ar/ai are frozen
 -- (not further updated), which is observationally identical to the CUDA
 -- version's early return, while staying well-defined for exactly 200 steps.
-julia :: Exp Int -> Exp Int -> Exp Int -> Exp Int
+julia :: Exp Int -> Exp Int -> Exp Int -> Exp Int32
 julia x y dim =
   let scale = 0.1 :: Exp Float
       dimF  = A.fromIntegral dim :: Exp Float
@@ -89,8 +93,9 @@ julia x y dim =
 -- | Build the DIM x DIM x 4 pixel array. Row-major flattening of a
 -- DIM3 = Z :. Int :. Int :. Int Accelerate array puts the last index
 -- fastest, so element (y,x,c) sits at ((y*dim)+x)*4+c -- identical to
--- the CUDA kernel's ptr[(x + y*dim)*4 + c] layout.
-pixels :: Int -> Acc (Array DIM3 Int)
+-- the CUDA kernel's ptr[(x + y*dim)*4 + c] layout. Element type is
+-- Int32, matching CUDA's `int` (see note above).
+pixels :: Int -> Acc (Array DIM3 Int32)
 pixels dim =
   A.generate (A.constant (Z :. dim :. dim :. 4)) go
   where
@@ -116,9 +121,7 @@ main = do
 runOnce :: Int -> IO ()
 runOnce dim = do
   t0     <- getCurrentTime
-  result <- evaluate(PTX.run (pixels dim))
- --  _ <- evaluate (show . head) (A.toList result) `deepseq` ())
-  _ <- evaluate$ (head (A.toList result))
+  result <- evaluate (PTX.run (pixels dim))
   t1     <- getCurrentTime
 
   let millis = realToFrac (diffUTCTime t1 t0) * 1000 :: Double
