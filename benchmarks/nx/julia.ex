@@ -8,7 +8,11 @@ defmodule BMP do
   end
 
   def gen_bmp_int_nif(_string, _dim, _mat) do
-    raise "gen_bmp_nif not implemented"
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def gen_bmp_float_nif(_string, _dim, _mat) do
+    :erlang.nif_error(:nif_not_loaded)
   end
 
   def gen_bmp_int(string, dim, binary) do
