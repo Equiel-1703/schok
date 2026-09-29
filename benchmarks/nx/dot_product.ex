@@ -80,7 +80,7 @@ defmodule DotProductNx do
     stop = System.monotonic_time()
     time_ms = System.convert_time_unit(stop - start, :native, :microsecond) / 1000.0
 
-    IO.puts("Nx\t#{n}\n#{time_ms}")
+    IO.puts("Nx\t#{n}\t#{time_ms}")
 
     final
   end

@@ -138,7 +138,7 @@ defmodule JuliaSetNx do
     stop = System.monotonic_time()
     time_ms = System.convert_time_unit(stop - start, :native, :microsecond) / 1000.0
 
-    IO.puts("Nx\t#{dim}\n#{time_ms}")
+    IO.puts("Nx\t#{dim}\t#{time_ms}")
 
     h_pixelbuffer
   end
