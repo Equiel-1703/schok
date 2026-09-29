@@ -11,18 +11,8 @@ defmodule BMP do
     raise "gen_bmp_nif not implemented"
   end
 
-  def gen_bmp_float_nif(_string, _dim, _mat) do
-    raise "gen_bmp_nif not implemented"
-  end
-
-  def gen_bmp_int(string, dim, %Nx.Tensor{data: data, type: _type, shape: _shape, names: _name}) do
-    %Nx.BinaryBackend{state: array} = data
-    gen_bmp_int_nif(string, dim, array)
-  end
-
-  def gen_bmp_float(string, dim, %Nx.Tensor{data: data, type: _type, shape: _shape, names: _name}) do
-    %Nx.BinaryBackend{state: array} = data
-    gen_bmp_float_nif(string, dim, array)
+  def gen_bmp_int(string, dim, binary) do
+    gen_bmp_int_nif(to_charlist(string), dim, binary)
   end
 end
 
@@ -139,14 +129,14 @@ defmodule JuliaSetNx do
     pixelbuffer = mapgen2d_xy_1para_noret_ker(x, y, dim, f)
 
     # cudaMemcpy(h_pixelbuffer, d_pixelbuffer, ..., DeviceToHost)
-    _h_pixelbuffer = Nx.to_binary(pixelbuffer)
+    h_pixelbuffer = Nx.to_binary(pixelbuffer)
 
     stop = System.monotonic_time()
     time_ms = System.convert_time_unit(stop - start, :native, :microsecond) / 1000.0
 
     IO.puts("Nx\t#{dim}\n#{time_ms}")
 
-    pixelbuffer
+    h_pixelbuffer
   end
 end
 
