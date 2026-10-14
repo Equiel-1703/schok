@@ -30,10 +30,8 @@ import Control.Exception                      (evaluate)
 import Data.Time.Clock                         (diffUTCTime, getCurrentTime)
 import System.Environment                      (getArgs)
 import System.Random                           (newStdGen, randomRs)
-import Text.Printf                             (printf)
-import System.IO                               (hPrintf, stderr)
-import System.Mem (performBlockingMajorGC)
-
+import Text.Printf                             (printf, hPrintf)
+import System.IO                               (stderr)
 
 dotProduct :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
 dotProduct a b = A.fold (+) 0 (A.zipWith (*) a b)
@@ -71,7 +69,6 @@ main = do
   -- Warm-up (NOT timed): small dummy input, same compiled program.
   let wA = A.fromList (Z :. warmupSize) (Prelude.replicate warmupSize 1) :: Vector Float
       wB = A.fromList (Z :. warmupSize) (Prelude.replicate warmupSize 1) :: Vector Float
-  performBlockingMajorGC    
   w0 <- getCurrentTime
   _ <- evaluate (dot wA wB `A.indexArray` Z)
   w1 <- getCurrentTime
