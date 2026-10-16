@@ -178,18 +178,20 @@ end
 
 size = String.to_integer(arg)
 
-data_set_host = DataSet.gen_data_set_nx_double(size)
+#data_set_host = DataSet.gen_data_set_nx_double(size)
 
-#data_set_host = Nx.tensor(DataSet.gen_data_set(size),  type: {:f,32} )
+data_set_host = Nx.tensor(DataSet.gen_data_set(size),  type: {:f,32} )
+
+#IO.inspect data_set_host
 
 #IO.inspect data_set_host
 
-#IO.inspect data_set_host
+:erlang.garbage_collect()
 
 prev = System.monotonic_time()
 
 Hok.include_rts [NN]
-Hok.set_default_type(%{default:  :double, a: :double, b: :double, c: :double, d: :double })
+Hok.set_default_type(%{default:  :float, a: :float, b: :float, c: :float, d: :float })
 
 _r= Hok.new_gnx(data_set_host)
 |> NN.map_step_2para_1resp(2,0.0,0.0,size, &NN.euclid/3)
