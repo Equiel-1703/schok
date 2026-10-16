@@ -159,7 +159,10 @@ defk reduce_kernel(ra, rout, f ,identity, n) do
     type = Hok.get_type_gnx(d_array)
 
       distances_device = Hok.new_gnx(1,size, type)
-      Hok.spawn_rts(&NN.map_step_2para_1resp_kernel/7,{size,1,1},{1,1,1},[d_array,distances_device,step,par1,par2,size,f])
+      threadsPerBlock = 256;
+      numberOfBlocks = div(size + threadsPerBlock - 1, threadsPerBlock)
+
+      Hok.spawn_rts(&NN.map_step_2para_1resp_kernel/7,{numberOfBlocks,1,1},{threadsPerBlock,1,1},[d_array,distances_device,step,par1,par2,size,f])
       distances_device
   end
   deft euclid (arr b) ~> b ~> b ~> b
