@@ -84,6 +84,14 @@ Hok.defmodule_rts NN do
   def euclid_seq_([],_lat,_lng, data) do
     data
   end
+   deft menor b ~> b ~> b 
+  defd menor(x,y) do
+    if (x<y) do
+      x
+     else
+       y
+     end
+    end
  ##
  def reduce(ref, initial, f) do
 
@@ -159,14 +167,7 @@ defk reduce_kernel(ra, rout, f ,identity, n) do
     return sqrt((lat-d_locations[0])*(lat-d_locations[0])+(lng-d_locations[1])*(lng-d_locations[1]))
       #return sqrt((lat-d_locations[0])*(lat-d_locations[0])+(lng-d_locations[1])*(lng-d_locations[1]))
     end
-  deft menor b ~> b ~> b 
-  defd menor(x,y) do
-    if (x<y) do
-      x
-     else
-       y
-     end
-    end
+ 
 end
 
 
