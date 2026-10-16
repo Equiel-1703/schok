@@ -120,7 +120,7 @@ defk reduce_kernel(ra, rout, f ,identity, n) do
 
     temp = identity;
     while (tid < n) do
-        temp = menor(ra[tid], temp);
+        temp = f(ra[tid], temp);
         tid = tid + (blockDim.x * gridDim.x);
     end
     cache[cacheIndex] = temp;
@@ -130,7 +130,7 @@ defk reduce_kernel(ra, rout, f ,identity, n) do
     i = blockDim.x / 2;
     while (i > 0) do
         if (cacheIndex < i) do
-            cache[cacheIndex] = menor(cache[cacheIndex + i], cache[cacheIndex]);
+            cache[cacheIndex] = f(cache[cacheIndex + i], cache[cacheIndex]);
         end    
         __syncthreads();
         i = i / 2;
