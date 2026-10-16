@@ -86,8 +86,9 @@ main = do
 
   -- Force the scalar result so the device->host copy is actually
   -- included in the measured time, not deferred lazily past `t1`.
-  minDist <- evaluate (A.indexArray result Z)
 
+  --minDist <- evaluate (A.indexArray result Z)
+  minDist <- evaluate (force result)
   t1 <- getCurrentTime
   let elapsedMs = realToFrac (diffUTCTime t1 t0) * 1000 :: Double
 
