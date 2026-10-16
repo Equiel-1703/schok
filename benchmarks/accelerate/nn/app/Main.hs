@@ -70,7 +70,7 @@ main = do
   let locsArr = A.fromList (Z A.:. n) locsList :: Vector (Float, Float)
   _ <- evaluate (force locsArr)
 
-  --performBlockingMajorGC
+  performBlockingMajorGC
 
   t0 <- getCurrentTime
 
