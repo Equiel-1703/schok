@@ -25,14 +25,10 @@
 __global__
 void map_2kernel(float *a1, float *a2, float *a3, int size, float (*f)(float,float))
 {
-    const float* __restrict__ ra1 = a1;
-    const float* __restrict__ ra2 = a2;
-    float* __restrict__ ra3 = a3;
-
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    while (tid < size) {
-        ra3[tid] = f(ra1[tid], ra2[tid]);
-        tid = tid + (blockDim.x * gridDim.x);
+    
+    int id = blockIdx.x * blockDim.x + threadIdx.x;
+    if(id < size) {
+      a3[id] = f(a1[id],a2[id]);
     }
 }
 
@@ -44,12 +40,10 @@ void map_2kernel(float *a1, float *a2, float *a3, int size, float (*f)(float,flo
 // reduce those partials down to the final scalar.
 // ---------------------------------------------------------------------
 __global__
-void reduce_kernel(float *a, float *out, float (*f)(float,float),
+void reduce_kernel(float *ra, float *rout, float (*f)(float,float),
                     float identity, int n)
 {
-    const float* __restrict__ ra = a;
-    float* __restrict__ rout = out;
-
+    
     __shared__ float cache[256];
     int cacheIndex = threadIdx.x;
     int tid = threadIdx.x + (blockIdx.x * blockDim.x);
