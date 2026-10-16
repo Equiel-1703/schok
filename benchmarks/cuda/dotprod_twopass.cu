@@ -113,6 +113,9 @@ int main(int argc, char *argv[])
     for (int i = 0; i < N; i++) a[i] = rand();
     for (int i = 0; i < N; i++) b[i] = rand();
 
+    int n_threads_map = 256;
+    int n_blocks_map = (N + threadsPerBlock - 1)/ threadsPerBlock;
+
     int threadsPerBlock = 256;
     int numberOfBlocks  = 64;  // fixed, occupancy-sized grid; not tied to N
 
@@ -147,8 +150,9 @@ int main(int argc, char *argv[])
 
     float (*f1)(float,float) = (float (*)(float,float)) get_anonymous_mult_ptr();
     float (*f2)(float,float) = (float (*)(float,float)) get_anonymous_sum_ptr();
-
-    map_2kernel<<<numberOfBlocks, threadsPerBlock>>>(dev_a, dev_b, dev_resp, N, f1);
+    
+    
+    map_2kernel<<<n_blocks_map, n_threads_map>>>(dev_a, dev_b, dev_resp, N, f1);
     j_error = cudaGetLastError();
     if (j_error != cudaSuccess) { printf("Error: %s\n", cudaGetErrorString(j_error)); exit(1); }
 
