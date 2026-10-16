@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < N; i++) b[i] = rand();
 
     int n_threads_map = 256;
-    int n_blocks_map = (N + threadsPerBlock - 1)/ threadsPerBlock;
+    int n_blocks_map = (N + n_threads_map - 1)/ n_threads_map;
 
     int threadsPerBlock = 256;
     int numberOfBlocks  = 64;  // fixed, occupancy-sized grid; not tied to N
