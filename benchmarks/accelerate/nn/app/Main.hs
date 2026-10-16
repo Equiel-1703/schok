@@ -12,6 +12,7 @@ import           Data.Time.Clock                   ( getCurrentTime, diffUTCTime
 import           Control.Exception                 ( evaluate )
 import           Control.DeepSeq                   ( force )
 import           Text.Printf                        ( printf )
+import System.Mem (performBlockingMajorGC)
 
 -- ---------------------------------------------------------------------------
 -- Data generation
@@ -67,7 +68,9 @@ main = do
   let locsList = genLocations n
   _ <- evaluate (force locsList)
   let locsArr = A.fromList (Z A.:. n) locsList :: Vector (Float, Float)
-  _ <- evaluate locsArr
+  _ <- evaluate (force locsArr)
+
+  performBlockingMajorGC
 
   t0 <- getCurrentTime
 
