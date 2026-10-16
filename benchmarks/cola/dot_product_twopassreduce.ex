@@ -17,9 +17,12 @@ include CAS
     type = Hok.get_type_gnx(t2)
      size = l*c
      result_gpu = Hok.new_gnx(l,c, type)
+     
+      threadsPerBlock = 256
+    numberOfBlocks  = 64
 
-      threadsPerBlock = 256;
-      numberOfBlocks = div(size + threadsPerBlock - 1, threadsPerBlock)
+    #  threadsPerBlock = 256;
+    #  numberOfBlocks = div(size + threadsPerBlock - 1, threadsPerBlock)
 
       Hok.spawn_rts(&DP.map_2kernel/5,{numberOfBlocks,1,1},{threadsPerBlock,1,1},[t1,t2,result_gpu,size,func])
 
