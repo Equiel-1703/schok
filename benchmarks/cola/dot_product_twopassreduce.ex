@@ -164,6 +164,8 @@ _result = ref1
 Hok.end_hok 
 
 next = System.monotonic_time()
+Function.identity(vet1)
+Function.identity(vet2)
 
 
 IO.puts "Hok\t#{n}\t#{System.convert_time_unit(next-prev,:native,:millisecond)}"
