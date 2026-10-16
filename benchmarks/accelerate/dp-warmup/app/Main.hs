@@ -32,7 +32,7 @@ import Data.Time.Clock                         (diffUTCTime, getCurrentTime)
 import System.Environment                      (getArgs)
 import System.Random                           (newStdGen, randomRs)
 import Text.Printf                             (printf)
-
+import System.Mem (performBlockingMajorGC)
 -- | dot product = fold (+) 0 . zipWith (*) a b
 --   This is the direct Accelerate analogue of map_2kernel (the multiply)
 --   followed by reduce_kernel (the sum reduction) in the CUDA source.
@@ -69,6 +69,7 @@ main = do
   -- Force the list -> Array conversion now, so it is not counted below.
   _ <- evaluate (force vecA)
   _ <- evaluate (force vecB)
+  performBlockingMajorGC
 
   -- Timed region: this is the single execution. It covers everything
   -- PTX.run does internally for this program -- host->device transfer,

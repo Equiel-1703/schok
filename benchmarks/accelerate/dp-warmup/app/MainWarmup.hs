@@ -30,8 +30,8 @@ import Control.Exception                      (evaluate)
 import Data.Time.Clock                         (diffUTCTime, getCurrentTime)
 import System.Environment                      (getArgs)
 import System.Random                           (newStdGen, randomRs)
-import Text.Printf                             (printf, hPrintf)
-import System.IO                               (stderr)
+import Text.Printf                             (printf)
+import System.Mem (performBlockingMajorGC)
 
 dotProduct :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
 dotProduct a b = A.fold (+) 0 (A.zipWith (*) a b)
@@ -69,18 +69,14 @@ main = do
   -- Warm-up (NOT timed): small dummy input, same compiled program.
   let wA = A.fromList (Z :. warmupSize) (Prelude.replicate warmupSize 1) :: Vector Float
       wB = A.fromList (Z :. warmupSize) (Prelude.replicate warmupSize 1) :: Vector Float
-  w0 <- getCurrentTime
   _ <- evaluate (dot wA wB `A.indexArray` Z)
-  w1 <- getCurrentTime
-  -- Diagnostic only (stderr, so stdout stays one clean result line):
-  -- how long the one-off startup cost took on this run.
-  hPrintf stderr "warmup-ms\t%3.1f\n"
-          (realToFrac (diffUTCTime w1 w0) * 1000 :: Double)
 
   -- Timed run: transfer + compute + transfer back, no compilation.
+  performBlockingMajorGC
   t0 <- getCurrentTime
   let result = dot vecA vecB
   _ <- evaluate (force result)
+  --_ <- evaluate (A.indexArray result Z)
   t1 <- getCurrentTime
 
   let elapsedMs = realToFrac (diffUTCTime t1 t0) * 1000 :: Double
