@@ -219,7 +219,7 @@ int main(int argc, char* argv[])
 
 
     reduce_kernel<<<numberOfBlocks, threadsPerBlock>>>(d_distances, d_partials, f2, 5000.0f, numRecords);
-    reduce_kernel<<<1, threadsPerBlock>>>(d_partials, d_resp, f2, 0.0f, numberOfBlocks);
+    reduce_kernel<<<1, threadsPerBlock>>>(d_partials, d_resp, f2, 5000.0f, numberOfBlocks);
 
     cudaDeviceSynchronize();
     //Copy data from device memory to host memory
