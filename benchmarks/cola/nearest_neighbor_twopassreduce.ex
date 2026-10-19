@@ -195,7 +195,7 @@ prev = System.monotonic_time()
 Hok.include_rts [NN]
 Hok.set_default_type(%{default:  :float, a: :float, b: :float, c: :float, d: :float })
 
-r= Hok.new_gnx(data_set_host)
+_r= Hok.new_gnx(data_set_host)
 |> NN.map_step_2para_1resp(2,0.0,0.0,size, &NN.euclid/3)
 |> NN.reduce(50000.0,&NN.menor/2)
 |> Hok.get_gnx
@@ -203,7 +203,6 @@ r= Hok.new_gnx(data_set_host)
 
 Hok.end_hok 
 
-IO.inspect r 
 next = System.monotonic_time()
 IO.puts "Hok\t#{size}\t#{System.convert_time_unit(next-prev,:native,:millisecond)}"
 

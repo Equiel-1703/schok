@@ -226,7 +226,7 @@ int main(int argc, char* argv[])
 
     cudaMemcpy( resp, d_resp, sizeof(float), cudaMemcpyDeviceToHost );
 
-    printf("Resposta: %f\n", *resp);
+   // printf("Resposta: %f\n", *resp);
 	// find the resultsCount least distances
     free(distances);
     //Free memory
