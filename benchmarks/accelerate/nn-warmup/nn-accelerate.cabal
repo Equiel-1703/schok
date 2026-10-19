@@ -1,0 +1,25 @@
+cabal-version:      2.4
+name:               nn-accelerate
+version:            0.3.0.0
+build-type:         Simple
+
+common shared
+  default-language:    Haskell2010
+  ghc-options:         -O2 -threaded -rtsopts "-with-rtsopts=-N"
+  hs-source-dirs:      app
+  build-depends:       base            >=4 && <5
+                     , accelerate
+                     , accelerate-llvm-ptx
+                     , random
+                     , time
+                     , deepseq
+
+-- Single cold execution: JIT/compile time IS included in the measurement.
+executable nn-cold
+  import:              shared
+  main-is:             Cold.hs
+
+-- Warm-up run on a tiny input first, then the timed run on the real input.
+executable nn-warm
+  import:              shared
+  main-is:             Warm.hs
