@@ -55,8 +55,16 @@ defmodule DotProductNx do
   """
   def run(n) do
     # host arrays (CUDA: a = malloc(...); a[i] = rand();)
-    a_host = for _ <- 1..n, do: :rand.uniform() * 32_767
-    b_host = for _ <- 1..n, do: :rand.uniform() * 32_767
+    #
+    # Built straight into a binary (4 bytes/float, same as a C array)
+    # instead of an Erlang list comprehension. A list here would cost
+    # ~40 bytes/element (cons cell + boxed double) instead of 4 — a
+    # ~10x blowup that OOM-kills the BEAM at large N even though the
+    # equivalent CUDA host malloc is fine. :into binary comprehension
+    # keeps the same per-element :rand.uniform() semantics, just with
+    # a compact target instead of a list.
+    a_bin = for _ <- 1..n, into: <<>>, do: <<:rand.uniform() * 32_767::float-32-native>>
+    b_bin = for _ <- 1..n, into: <<>>, do: <<:rand.uniform() * 32_767::float-32-native>>
 
     f1 = &anonymous_mult/2
     f2 = &anonymous_sum/2
@@ -64,9 +72,14 @@ defmodule DotProductNx do
     start = System.monotonic_time()
 
     # cudaMalloc + cudaMemcpy HostToDevice equivalent: build device
-    # tensors (EXLA backend places them on GPU if available)
-    dev_a = Nx.tensor(a_host, type: {:f, 32})
-    dev_b = Nx.tensor(b_host, type: {:f, 32})
+    # tensors directly from the binaries, landing straight on the
+    # :cuda client in one step (Nx.from_binary/3 takes a :backend
+    # option, so no separate backend_transfer hop is needed). If no
+    # CUDA device is visible, this raises immediately
+    # (EXLA.Client.fetch!(:cuda) fails) rather than silently falling
+    # back to host.
+    dev_a = Nx.from_binary(a_bin, {:f, 32}, backend: {EXLA.Backend, client: :cuda})
+    dev_b = Nx.from_binary(b_bin, {:f, 32}, backend: {EXLA.Backend, client: :cuda})
 
     # map_2kernel<<<...>>>(dev_a, dev_b, dev_resp, N, f1)
     dev_resp = map_2kernel(dev_a, dev_b, f1)
