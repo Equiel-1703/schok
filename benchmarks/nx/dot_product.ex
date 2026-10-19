@@ -2,7 +2,7 @@ Nx.global_default_backend(EXLA.Backend)
 Nx.Defn.global_default_options(compiler: EXLA, client: :cuda)
 
 defmodule BinaryGen do
-  def generate_dataset(size, type), do: _generate_dataset(size, type, <<>>, <<>>)
+  def generate_dataset(size, type), do: _generate_dataset(div(size,2), type, <<>>, <<>>)
 
   defp _generate_dataset(0, _type, a, b), do: a <> b
 
@@ -10,7 +10,7 @@ defmodule BinaryGen do
     new_a = _create_bin(type)
     new_b = _create_bin(type)
 
-    _generate_dataset(div(size,2), type, a <> new_a, b <> new_b)
+    _generate_dataset(size - 1, type, a <> new_a, b <> new_b)
   end
 
   defp _create_bin(type) do
