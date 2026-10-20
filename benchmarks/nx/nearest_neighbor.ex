@@ -1,6 +1,28 @@
 Nx.global_default_backend(EXLA.Backend)
 Nx.Defn.global_default_options(compiler: EXLA, client: :cuda)
 
+defmodule BinaryGen do
+  def generate_dataset(size, type, f), do: _generate_dataset(div(size,2), type, f, <<>>, <<>>)
+
+  defp _generate_dataset(0, _type, _f, a, b), do: a <> b
+
+  defp _generate_dataset(size, type, f, a, b) do
+    new_a = _create_bin(type, f)
+    new_b = _create_bin(type, f)
+
+    _generate_dataset(size - 1, type, f, a <> new_a, b <> new_b)
+  end
+
+  defp _create_bin(type, f) do
+    case type do
+      :float_32 -> <<f.()::float-32>>
+      :float_64 -> <<f.()::float-64>>
+      :int_32 -> <<trunc(f.())::integer-32>>
+      unknown -> raise "Provided type is invalid: #{unknown}"
+    end
+  end
+end
+
 defmodule NearestNeighborNx do
   @moduledoc """
   Elixir/Nx port of the CUDA nearest-neighbor benchmark
@@ -85,8 +107,8 @@ defmodule NearestNeighborNx do
     # loadData(locations, numRecords) equivalent:
     #   locations[0] = (7 + rand()%63) + fraction in [0,1)   -> lat
     #   locations[1] = (rand()%358)    + fraction in [0,1)   -> lng
-    lat_host = for _ <- 1..n, do: (7 + :rand.uniform(63) - 1) + :rand.uniform()
-    lng_host = for _ <- 1..n, do: :rand.uniform(358) - 1 + :rand.uniform()
+    lat_host_bin = BinaryGen.generate_dataset(n, :float_32, fn -> (7 + :rand.uniform(63) - 1) + :rand.uniform() end)
+    lng_host_bin = BinaryGen.generate_dataset(n, :float_32, fn -> :rand.uniform(358) - 1 + :rand.uniform() end)
 
     f1 = &euclid/4
     f2 = &menor/2
@@ -94,8 +116,8 @@ defmodule NearestNeighborNx do
     start = System.monotonic_time()
 
     # cudaMalloc(&d_locations, ...) + cudaMemcpy HostToDevice equivalent
-    loc_lat = Nx.tensor(lat_host, type: {:f, 32})
-    loc_lng = Nx.tensor(lng_host, type: {:f, 32})
+    loc_lat = Nx.from_binary(lat_host_bin, {:f, 32}, backend: {EXLA.Backend, client: :cuda})
+    loc_lng = Nx.from_binary(lng_host_bin, {:f, 32}, backend: {EXLA.Backend, client: :cuda})
 
     # map_step_2para_1resp_kernel<<<numRecords, 1>>>(d_locations, d_distances, 2, 0.0, 0.0, numRecords, f1)
     distances = map_step_2para_1resp_kernel(loc_lat, loc_lng, 0.0, 0.0, f1)
