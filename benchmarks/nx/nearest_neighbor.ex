@@ -107,8 +107,8 @@ defmodule NearestNeighborNx do
     # loadData(locations, numRecords) equivalent:
     #   locations[0] = (7 + rand()%63) + fraction in [0,1)   -> lat
     #   locations[1] = (rand()%358)    + fraction in [0,1)   -> lng
-    lat_host_bin = BinaryGen.generate_dataset(n, :float_32, fn -> (7 + :rand.uniform(63) - 1) + :rand.uniform() end)
-    lng_host_bin = BinaryGen.generate_dataset(n, :float_32, fn -> :rand.uniform(358) - 1 + :rand.uniform() end)
+    lat_host_bin = BinaryGen.generate_dataset(n, :float_64, fn -> (7 + :rand.uniform(63) - 1) + :rand.uniform() end)
+    lng_host_bin = BinaryGen.generate_dataset(n, :float_64, fn -> :rand.uniform(358) - 1 + :rand.uniform() end)
 
     f1 = &euclid/4
     f2 = &menor/2
@@ -116,8 +116,8 @@ defmodule NearestNeighborNx do
     start = System.monotonic_time()
 
     # cudaMalloc(&d_locations, ...) + cudaMemcpy HostToDevice equivalent
-    loc_lat = Nx.from_binary(lat_host_bin, {:f, 32}, backend: {EXLA.Backend, client: :cuda})
-    loc_lng = Nx.from_binary(lng_host_bin, {:f, 32}, backend: {EXLA.Backend, client: :cuda})
+    loc_lat = Nx.from_binary(lat_host_bin, {:f, 64}, backend: {EXLA.Backend, client: :cuda})
+    loc_lng = Nx.from_binary(lng_host_bin, {:f, 64}, backend: {EXLA.Backend, client: :cuda})
 
     # map_step_2para_1resp_kernel<<<numRecords, 1>>>(d_locations, d_distances, 2, 0.0, 0.0, numRecords, f1)
     distances = map_step_2para_1resp_kernel(loc_lat, loc_lng, 0.0, 0.0, f1)
