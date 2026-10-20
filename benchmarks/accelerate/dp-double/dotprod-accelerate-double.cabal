@@ -1,0 +1,26 @@
+cabal-version:      2.4
+name:               dotprod-accelerate-double
+version:            0.1.0.0
+build-type:         Simple
+synopsis:           Double-precision Accelerate dot product (cold and warm-up variants)
+
+common shared
+    hs-source-dirs:   app
+    default-language: Haskell2010
+    ghc-options:      -O2 -threaded -rtsopts
+    build-depends:    base       >=4.14 && <5
+                    , accelerate
+                    , accelerate-llvm-ptx
+                    , random
+                    , deepseq
+                    , time
+
+-- Single execution, no warm-up
+executable dotprod-double
+    import:           shared
+    main-is:          MainDouble.hs
+
+-- Warm-up run first, then the timed run
+executable dotprod-double-warmup
+    import:           shared
+    main-is:          MainWarmupDouble.hs
