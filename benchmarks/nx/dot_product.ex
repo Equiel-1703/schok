@@ -17,7 +17,7 @@ defmodule BinaryGen do
     case type do
       :float_32 -> <<:rand.uniform() * 100::float-32>>
       :float_64 -> <<:rand.uniform() * 100::float-64>>
-      :int_32 -> <<:rand.uniform() * 100::integer-32>>
+      :int_32 -> <<trunc(:rand.uniform() * 100)::integer-32>>
       unknown -> raise "Provided type is invalid: #{unknown}"
     end
   end
@@ -88,13 +88,7 @@ defmodule DotProductNx do
     # a_bin = for _ <- 1..n, into: <<>>, do: <<:rand.uniform() * 32_767::float-32-native>>
     # b_bin = for _ <- 1..n, into: <<>>, do: <<:rand.uniform() * 32_767::float-32-native>>
     a_bin = BinaryGen.generate_dataset(n, :float_32)
-
-    IO.puts("a_bin criado: #{div(byte_size(a_bin), 4)}")
-
     b_bin = BinaryGen.generate_dataset(n, :float_32)
-
-    IO.puts("b_bin criado: #{div(byte_size(b_bin), 4)}")
-
 
     f1 = &anonymous_mult/2
     f2 = &anonymous_sum/2
