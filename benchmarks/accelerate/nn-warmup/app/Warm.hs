@@ -11,6 +11,7 @@ import           Data.Time.Clock    ( getCurrentTime, diffUTCTime )
 import           System.Environment ( getArgs )
 import           System.Random      ( mkStdGen, randomRs )
 import           Text.Printf        ( printf )
+import System.Mem (performBlockingMajorGC)
 
 -- Same value ranges as the CUDA loadData (not bit-identical to C's rand()).
 genLocations :: Int -> [(Float, Float)]
@@ -25,7 +26,7 @@ mkInput n = do
   let xs = genLocations n
   _ <- evaluate (force xs)
   let arr = A.fromList (Z A.:. n) xs :: Vector (Float, Float)
-  _ <- evaluate arr
+  _ <- evaluate (force arr)
   return arr
 
 -- map: Euclidean distance to the origin; fold: minimum.
@@ -52,6 +53,8 @@ main = do
   let f = PTX.runN nearestNeighbor :: Vector (Float, Float) -> Scalar Float
   warmInput <- mkInput 1024
   _ <- evaluate (A.indexArray (f warmInput) Z)
+  
+  performBlockingMajorGC
 
   t0 <- getCurrentTime
   let result = f input
