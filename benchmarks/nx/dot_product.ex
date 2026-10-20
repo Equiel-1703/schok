@@ -87,8 +87,8 @@ defmodule DotProductNx do
     # a compact target instead of a list.
     # a_bin = for _ <- 1..n, into: <<>>, do: <<:rand.uniform() * 32_767::float-32-native>>
     # b_bin = for _ <- 1..n, into: <<>>, do: <<:rand.uniform() * 32_767::float-32-native>>
-    a_bin = BinaryGen.generate_dataset(n, :float_32)
-    b_bin = BinaryGen.generate_dataset(n, :float_32)
+    a_bin = BinaryGen.generate_dataset(n, :float_64)
+    b_bin = BinaryGen.generate_dataset(n, :float_64)
 
     f1 = &anonymous_mult/2
     f2 = &anonymous_sum/2
@@ -102,8 +102,8 @@ defmodule DotProductNx do
     # CUDA device is visible, this raises immediately
     # (EXLA.Client.fetch!(:cuda) fails) rather than silently falling
     # back to host.
-    dev_a = Nx.from_binary(a_bin, {:f, 32}, backend: {EXLA.Backend, client: :cuda})
-    dev_b = Nx.from_binary(b_bin, {:f, 32}, backend: {EXLA.Backend, client: :cuda})
+    dev_a = Nx.from_binary(a_bin, {:f, 64}, backend: {EXLA.Backend, client: :cuda})
+    dev_b = Nx.from_binary(b_bin, {:f, 64}, backend: {EXLA.Backend, client: :cuda})
 
     # map_2kernel<<<...>>>(dev_a, dev_b, dev_resp, N, f1)
     dev_resp = map_2kernel(dev_a, dev_b, f1)
