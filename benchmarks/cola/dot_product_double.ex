@@ -167,7 +167,7 @@ _result = ref1
     |> DP.reduce(0.0,Hok.hok_rts fn (a,b) -> a + b end)
     |> Hok.get_gnx
 
-#Hok.end_hok 
+Hok.end_hok 
 
 next = System.monotonic_time()
 
