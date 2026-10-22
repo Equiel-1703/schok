@@ -1,6 +1,28 @@
 Nx.global_default_backend(EXLA.Backend)
 Nx.Defn.global_default_options(compiler: EXLA, client: :cuda)
 
+defmodule BinaryGen do
+  def generate_dataset(size, type), do: _generate_dataset(div(size,2), type, <<>>, <<>>)
+
+  defp _generate_dataset(0, _type, a, b), do: a <> b
+
+  defp _generate_dataset(size, type, a, b) do
+    new_a = _create_bin(type)
+    new_b = _create_bin(type)
+
+    _generate_dataset(size - 1, type, a <> new_a, b <> new_b)
+  end
+
+  defp _create_bin(type) do
+    case type do
+      :float_32 -> <<:rand.uniform() * 100::float-32>>
+      :float_64 -> <<:rand.uniform() * 100::float-64>>
+      :int_32 -> <<trunc(:rand.uniform() * 100)::integer-32>>
+      unknown -> raise "Provided type is invalid: #{unknown}"
+    end
+  end
+end
+
 defmodule DotProductNx do
   @moduledoc """
   Elixir/Nx port of the CUDA dot-product benchmark (map_2kernel + reduce_kernel).
@@ -55,8 +77,18 @@ defmodule DotProductNx do
   """
   def run(n) do
     # host arrays (CUDA: a = malloc(...); a[i] = rand();)
-    a_host = for _ <- 1..n, do: :rand.uniform() * 32_767
-    b_host = for _ <- 1..n, do: :rand.uniform() * 32_767
+    #
+    # Built straight into a binary (4 bytes/float, same as a C array)
+    # instead of an Erlang list comprehension. A list here would cost
+    # ~40 bytes/element (cons cell + boxed double) instead of 4 — a
+    # ~10x blowup that OOM-kills the BEAM at large N even though the
+    # equivalent CUDA host malloc is fine. :into binary comprehension
+    # keeps the same per-element :rand.uniform() semantics, just with
+    # a compact target instead of a list.
+    # a_bin = for _ <- 1..n, into: <<>>, do: <<:rand.uniform() * 32_767::float-32-native>>
+    # b_bin = for _ <- 1..n, into: <<>>, do: <<:rand.uniform() * 32_767::float-32-native>>
+    a_bin = BinaryGen.generate_dataset(n, :float_64)
+    b_bin = BinaryGen.generate_dataset(n, :float_64)
 
     f1 = &anonymous_mult/2
     f2 = &anonymous_sum/2
@@ -64,9 +96,14 @@ defmodule DotProductNx do
     start = System.monotonic_time()
 
     # cudaMalloc + cudaMemcpy HostToDevice equivalent: build device
-    # tensors (EXLA backend places them on GPU if available)
-    dev_a = Nx.tensor(a_host, type: {:f, 32})
-    dev_b = Nx.tensor(b_host, type: {:f, 32})
+    # tensors directly from the binaries, landing straight on the
+    # :cuda client in one step (Nx.from_binary/3 takes a :backend
+    # option, so no separate backend_transfer hop is needed). If no
+    # CUDA device is visible, this raises immediately
+    # (EXLA.Client.fetch!(:cuda) fails) rather than silently falling
+    # back to host.
+    dev_a = Nx.from_binary(a_bin, {:f, 64}, backend: {EXLA.Backend, client: :cuda})
+    dev_b = Nx.from_binary(b_bin, {:f, 64}, backend: {EXLA.Backend, client: :cuda})
 
     # map_2kernel<<<...>>>(dev_a, dev_b, dev_resp, N, f1)
     dev_resp = map_2kernel(dev_a, dev_b, f1)
