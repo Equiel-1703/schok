@@ -134,9 +134,6 @@ Hok.set_default_type(%{default:  :double, a: :double, b: :double, c: :double })
 vet1 = Hok.new_nx_from_function(1,n,{:f,64},fn  -> 1.0 end)
 vet2 = Hok.new_nx_from_function(1,n,{:f,64},fn  -> 1.0 end)
 
-IO.inspect(vet1, label: "vet1")
-IO.inspect(vet2, label: "vet2")
-
 #vet1 = DP.new_dataset_nx(n)
 #vet2 = Hok.new_nx_from_function(1,n,{:f,32},fn  -> 1 end)
 
@@ -158,9 +155,7 @@ prev = System.monotonic_time()
 #IO.inspect vet2
 
 ref1 = Hok.new_gnx(vet1)
-
 ref2 = Hok.new_gnx(vet2)
-
 
 _result = ref1
     |> DP.map2(ref2, Hok.hok_rts fn (a,b) -> a * b end)
