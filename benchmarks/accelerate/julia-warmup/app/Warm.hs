@@ -9,7 +9,7 @@ import qualified Data.Array.Accelerate           as A
 import           Data.Array.Accelerate           (Array, DIM3, Scalar, Z (..))
 import qualified Data.Array.Accelerate.LLVM.PTX  as PTX
 
-import           Control.DeepSeq                 (force)
+import           Control.DeepSeq                 (force,rnf)
 import           Control.Exception               (evaluate)
 import           Data.Int                        (Int32)
 import           Data.Time.Clock                 (diffUTCTime, getCurrentTime)
