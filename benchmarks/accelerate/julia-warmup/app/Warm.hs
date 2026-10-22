@@ -46,7 +46,7 @@ runWarm dim = do
   t0 <- getCurrentTime
 
   let result = pixelsRun (A.fromList Z [dim])
-  _ <- evaluate (force result)
+  _ <- evaluate (rnf result)
 
   t1 <- getCurrentTime
   let millis = realToFrac (diffUTCTime t1 t0) * 1000 :: Double
