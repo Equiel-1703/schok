@@ -68,7 +68,9 @@ defmodule JuliaSetNx do
     no_escape_yet = Nx.broadcast(Nx.tensor(0, type: {:u, 8}), Nx.shape(x))
 
     {_ar, _ai, escaped} =
-      while {ar = jx, ai = jy, escaped = no_escape_yet}, _i <- 0..(@iterations - 1) do
+      while {ar = jx, ai = jy, escaped = no_escape_yet},
+      _i <- 0..(@iterations - 1),
+      unroll: 10 do
         nar = ar * ar - ai * ai + @cr
         nai = ai * ar + ar * ai + @ci
         diverged = nar * nar + nai * nai > @escape_radius_sq
