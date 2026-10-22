@@ -108,7 +108,6 @@ int main(int argc, char *argv[])
 
     a = (float*)malloc(N * sizeof(float));
     b = (float*)malloc(N * sizeof(float));
-    final = (float*)malloc(sizeof(float));
 
     for (int i = 0; i < N; i++) a[i] = rand();
     for (int i = 0; i < N; i++) b[i] = rand();
@@ -166,6 +165,9 @@ int main(int argc, char *argv[])
     reduce_kernel<<<1, threadsPerBlock>>>(d_partials, d_final, f2, 0.0f, numberOfBlocks);
     j_error = cudaGetLastError();
     if (j_error != cudaSuccess) { printf("Error: %s\n", cudaGetErrorString(j_error)); exit(1); }
+
+    final = (float*)malloc(sizeof(float));
+
 
     cudaMemcpy(final, d_final, sizeof(float), cudaMemcpyDeviceToHost);
     j_error = cudaGetLastError();
