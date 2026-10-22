@@ -6,10 +6,10 @@
 module Main where
 
 import qualified Data.Array.Accelerate           as A
-import           Data.Array.Accelerate           (Array, DIM3, Scalar, Z (..))
+import           Data.Array.Accelerate           (Array, DIM1, Scalar, Z (..))
 import qualified Data.Array.Accelerate.LLVM.PTX  as PTX
 
-import           Control.DeepSeq                 (force,rnf)
+import           Control.DeepSeq                 (force)
 import           Control.Exception               (evaluate)
 import           Data.Int                        (Int32)
 import           Data.Time.Clock                 (diffUTCTime, getCurrentTime)
@@ -21,7 +21,7 @@ import           Text.Printf                     (printf)
 import           Julia                           (pixelsN)
 
 -- | Compiled once, shared by the warm-up call and the timed call.
-pixelsRun :: Scalar Int -> Array DIM3 Int32
+pixelsRun :: Scalar Int -> Array DIM1 Int32
 pixelsRun = PTX.runN pixelsN
 {-# NOINLINE pixelsRun #-}
 
@@ -46,7 +46,7 @@ runWarm dim = do
   t0 <- getCurrentTime
 
   let result = pixelsRun (A.fromList Z [dim])
-  _ <- evaluate (rnf result)
+  _ <- evaluate (force result)
 
   t1 <- getCurrentTime
   let millis = realToFrac (diffUTCTime t1 t0) * 1000 :: Double

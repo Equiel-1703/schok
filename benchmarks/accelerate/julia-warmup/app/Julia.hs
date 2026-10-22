@@ -7,14 +7,13 @@
 -- The Julia-set computation, shared verbatim by the cold and warm
 -- executables so that the Accelerate program is identical in both.
 --
--- Output: DIM x DIM x 4 array of Int32 (r,g,b,a per pixel); element (y,x,c)
--- sits at ((y*dim)+x)*4+c, identical to the CUDA kernel's
--- ptr[(x + y*dim)*4 + c] layout. Int32 matches CUDA's `int`.
+-- Output: a flat 1D array of dim*dim*4 Int32, like the CUDA program's
+-- `int *` buffer (height*width*4 ints). Pixel (x,y) occupies elements
+-- ((x + y*dim)*4 + c), c = 0..3 = (r,g,b,a). Int32 matches CUDA's `int`.
 module Julia (pixelsN) where
 
 import qualified Data.Array.Accelerate as A
-import           Data.Array.Accelerate (Acc, Array, DIM3, Exp, Scalar,
-                                          Z (..), (:.) (..))
+import           Data.Array.Accelerate (Acc, Array, DIM1, Exp, Scalar)
 import           Data.Int              (Int32)
 
 -- | Mirrors the CUDA __device__ function `julia`: returns 1 if the point
@@ -55,15 +54,22 @@ julia x y dim =
       A.T4 _ _ divergedFinal _ = final
   in A.cond divergedFinal 0 1
 
--- | The Accelerate program. `dim` is a Scalar Int input.
-pixelsN :: Acc (Scalar Int) -> Acc (Array DIM3 Int32)
+-- | The Accelerate program. `dim` is a Scalar Int input. Each output element
+-- i is mapped back to (pixel offset, channel) = (i `quot` 4, i `rem` 4) and
+-- then to (x, y) = (offset `rem` dim, offset `quot` dim), the inverse of the
+-- CUDA kernel's  offset = x + y*dim;  ptr[offset*4 + c].
+pixelsN :: Acc (Scalar Int) -> Acc (Array DIM1 Int32)
 pixelsN dimA =
-  A.generate (A.I3 dim dim 4) go
+  A.generate (A.I1 (dim * dim * 4)) go
   where
     dim = A.the dimA
     go ix =
-      let Z :. y :. x :. c = A.unlift ix :: Z :. Exp Int :. Exp Int :. Exp Int
-          jv = julia x y dim
+      let i      = A.unindex1 ix
+          offset = i `A.quot` 4
+          c      = i `A.rem` 4
+          x      = offset `A.rem` dim
+          y      = offset `A.quot` dim
+          jv     = julia x y dim
       in A.cond (c A.== 0) (255 * jv)
        $ A.cond (c A.== 3) 255
        $ 0
