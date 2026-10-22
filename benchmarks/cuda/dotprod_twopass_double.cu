@@ -170,7 +170,7 @@ int main(int argc, char *argv[])
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time, start, stop);
-    printf("Result: %f\n", *final);
+    //printf("Result: %f\n", *final);
     printf("CUDA-double\t%d\t%3.1f\n", N, time);
 
     free(a);

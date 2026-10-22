@@ -159,14 +159,14 @@ ref1 = Hok.new_gnx(vet1)
 ref2 = Hok.new_gnx(vet2)
 
 
-result = ref1
+_result = ref1
     |> DP.map2(ref2, Hok.hok_rts fn (a,b) -> a * b end)
     |> DP.reduce(0.0,Hok.hok_rts fn (a,b) -> a + b end)
     |> Hok.get_gnx
 
 IO.inspect result
 
-Hok.end_hok 
+#Hok.end_hok 
 
 next = System.monotonic_time()
 
