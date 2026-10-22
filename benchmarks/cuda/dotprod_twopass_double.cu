@@ -96,7 +96,6 @@ int main(int argc, char *argv[])
 
     a = (double*)malloc((size_t)N * sizeof(double));
     b = (double*)malloc((size_t)N * sizeof(double));
-    final = (double*)malloc(sizeof(double));
 
     for (int i = 0; i < N; i++) a[i] = 1; //rand();
     for (int i = 0; i < N; i++) b[i] = 1; //rand();
@@ -156,7 +155,8 @@ int main(int argc, char *argv[])
     reduce_kernel<<<1, threadsPerBlock>>>(d_partials, d_final, f2, 0.0, numberOfBlocks);
     j_error = cudaGetLastError();
     if (j_error != cudaSuccess) { printf("Error: %s\n", cudaGetErrorString(j_error)); exit(1); }
-
+     
+    final = (double*)malloc(sizeof(double));
     cudaMemcpy(final, d_final, sizeof(double), cudaMemcpyDeviceToHost);
     j_error = cudaGetLastError();
     if (j_error != cudaSuccess) { printf("Error: %s\n", cudaGetErrorString(j_error)); exit(1); }
