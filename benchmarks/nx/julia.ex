@@ -31,17 +31,19 @@ defmodule JuliaSetNx do
     ----                                 --
     julia(x, y, dim)                ->   julia(x, y, dim)              (defn, escape-time test)
     julia_function(ptr, x, y, dim)  ->   julia_function(x, y, dim)     (defn, builds RGBA per pixel)
-    mapgen2D_xy_1para_noret_ker     ->   mapgen2d_xy_1para_noret_ker(x, y, dim, f)
+    mapgen2D_xy_1para_noret_ker     ->   mapgen2d_xy_1para_noret_ker(f, dim: dim)
     get_julia_function_ptr()        ->   &julia_function/3 (Elixir function capture, the "pointer")
+    blockIdx/threadIdx -> x, y      ->   Nx.iota inside the kernel (never materialized in HBM)
     main()                          ->   run/1
 
   The CUDA kernel launches one thread per (x, y) pixel and has julia()
   `return` early the moment |z| escapes. Nx has no per-lane early exit,
   so the escape test is vectorized over the whole (dim, dim) grid at
-  once: every pixel still runs all 200 iterations, but a `still_running`
-  mask freezes a pixel's (ar, ai) the instant it escapes, so further
-  iterations are no-ops for that pixel — same result, different
-  execution model (SIMD-over-pixels instead of one CUDA thread each).
+  once and every pixel runs all 200 iterations. A sticky `escaped` flag
+  records whether any iteration exceeded the radius; since the CUDA
+  result is "1 iff no iteration ever diverged", the flag alone gives the
+  same output, and later iterations of an escaped pixel are harmless
+  (they may overflow to inf/NaN, which never clears the flag).
   """
 
   import Nx.Defn
@@ -54,30 +56,24 @@ defmodule JuliaSetNx do
 
   # ---------------------------------------------------------------
   # "julia": escape-time test, vectorized over the full (x, y) grid.
-  # Mirrors the CUDA device function's math and 200-iteration bound
-  # exactly; returns 1 where the point never escaped (CUDA's
-  # `return 1`), 0 where it did (CUDA's early `return 0`).
+  # Returns 1 where the point never escaped (CUDA's `return 1`),
+  # 0 where it did (CUDA's early `return 0`).
+  #
+  # Loop state is ar/ai (f32) plus a 1-byte flag per pixel, instead of
+  # ar/ai/escaped(s32): 9 bytes/pixel instead of 12.
   # ---------------------------------------------------------------
   defn julia(x, y, dim) do
     jx = @scale * (dim - x) / dim
     jy = @scale * (dim - y) / dim
-    zero = Nx.broadcast(0, Nx.shape(x))
+    no_escape_yet = Nx.broadcast(Nx.tensor(0, type: {:u, 8}), Nx.shape(x))
 
     {_ar, _ai, escaped} =
-      while {ar = jx, ai = jy, escaped = zero}, _i <- 0..(@iterations - 1) do
+      while {ar = jx, ai = jy, escaped = no_escape_yet}, _i <- 0..(@iterations - 1) do
         nar = ar * ar - ai * ai + @cr
         nai = ai * ar + ar * ai + @ci
-
-        still_running = escaped == 0
         diverged = nar * nar + nai * nai > @escape_radius_sq
-        newly_escaped = still_running and diverged
 
-        escaped = Nx.select(newly_escaped, 1, escaped)
-        # freeze (ar, ai) once escaped, same effect as CUDA's early `return`
-        ar = Nx.select(still_running, nar, ar)
-        ai = Nx.select(still_running, nai, ai)
-
-        {ar, ai, escaped}
+        {nar, nai, escaped or diverged}
       end
 
     escaped == 0
@@ -87,13 +83,14 @@ defmodule JuliaSetNx do
   # "julia_function": builds the 4 RGBA channels for every pixel at
   # once from julia_value, mirroring the CUDA device function that
   # writes ptr[offset*4 + 0..3] = {255*juliaValue, 0, 0, 255} per pixel.
+  # Output is s32, same as CUDA's `int *ptr`.
   # ---------------------------------------------------------------
   defn julia_function(x, y, dim) do
-    julia_value = julia(x, y, dim)
+    julia_value = Nx.as_type(julia(x, y, dim), {:s, 32})
 
     r = 255 * julia_value
-    zeros = Nx.broadcast(0, Nx.shape(julia_value))
-    full = Nx.broadcast(255, Nx.shape(julia_value))
+    zeros = Nx.broadcast(Nx.tensor(0, type: {:s, 32}), Nx.shape(julia_value))
+    full = Nx.broadcast(Nx.tensor(255, type: {:s, 32}), Nx.shape(julia_value))
 
     # stacked on the last axis so flattening (y, x, channel) matches
     # the CUDA layout exactly: ptr[(x + y*dim)*4 + channel]
@@ -102,35 +99,38 @@ defmodule JuliaSetNx do
 
   # ---------------------------------------------------------------
   # "mapgen2D_xy_1para_noret_ker": generic 2D map kernel driven by a
-  # function argument, exactly like the CUDA kernel takes a
-  # `void (*f)(int*, int, int, int)` device function pointer — here f
-  # is applied over the whole (x, y) coordinate grid at once instead
-  # of one CUDA thread per pixel.
+  # function argument, like the CUDA kernel takes a
+  # `void (*f)(int*, int, int, int)` device function pointer.
+  #
+  # The (x, y) coordinates are built here from iota, like the CUDA
+  # thread computes them from blockIdx/threadIdx. XLA fuses them into
+  # the computation, so the two dim*dim s32 grids (3.2 GB at 20000)
+  # are never allocated. `dim` is a compile-time option because iota
+  # needs a static shape.
   # ---------------------------------------------------------------
-  defn mapgen2d_xy_1para_noret_ker(x, y, dim, f) do
+  defn mapgen2d_xy_1para_noret_ker(f, opts \\ []) do
+    opts = keyword!(opts, [:dim])
+    dim = opts[:dim]
+
+    x = Nx.iota({dim, dim}, axis: 1, type: {:s, 32})
+    y = Nx.iota({dim, dim}, axis: 0, type: {:s, 32})
+
     f.(x, y, dim)
   end
 
   @doc """
-  Equivalent of CUDA's main(argc, argv): builds the (x, y) pixel grid
-  for a DIM x DIM image, runs the map kernel through the function
-  pointer, times the whole device-facing portion (allocation +
-  kernel + transfer back, same as the CUDA cudaEvent bracket), and
-  prints "NX\\tDIM\\ttime_ms".
+  Equivalent of CUDA's main(argc, argv): runs the map kernel through the
+  function pointer for a DIM x DIM image, times the whole device-facing
+  portion (allocation + kernel + transfer back, same as the CUDA
+  cudaEvent bracket), and prints "Nx\\tDIM\\ttime_ms".
   """
   def run(dim) do
     f = &julia_function/3
 
     start = System.monotonic_time()
 
-    # cudaMalloc(&d_pixelbuffer, ...) equivalent: build the (x, y)
-    # coordinate grid, one entry per pixel (CUDA: one thread per
-    # pixel via blockIdx/threadIdx, here vectorized instead)
-    x = Nx.iota({dim, dim}, axis: 1, type: {:s, 32})
-    y = Nx.iota({dim, dim}, axis: 0, type: {:s, 32})
-
     # mapgen2D_xy_1para_noret_ker<<<grid, block>>>(d_pixelbuffer, DIM, DIM, f)
-    pixelbuffer = mapgen2d_xy_1para_noret_ker(x, y, dim, f)
+    pixelbuffer = mapgen2d_xy_1para_noret_ker(f, dim: dim)
 
     # cudaMemcpy(h_pixelbuffer, d_pixelbuffer, ..., DeviceToHost)
     h_pixelbuffer = Nx.to_binary(pixelbuffer)
