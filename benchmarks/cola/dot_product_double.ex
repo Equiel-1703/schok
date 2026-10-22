@@ -134,6 +134,9 @@ Hok.set_default_type(%{default:  :double, a: :double, b: :double, c: :double })
 vet1 = Hok.new_nx_from_function(1,n,{:f,64},fn  -> 1.0 end)
 vet2 = Hok.new_nx_from_function(1,n,{:f,64},fn  -> 1.0 end)
 
+IO.inspect(vet1, label: "vet1")
+IO.inspect(vet2, label: "vet2")
+
 #vet1 = DP.new_dataset_nx(n)
 #vet2 = Hok.new_nx_from_function(1,n,{:f,32},fn  -> 1 end)
 
