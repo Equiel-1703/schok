@@ -37,13 +37,14 @@ import           Data.Array.Accelerate           (Acc, Array, DIM3, Exp,
                                                     Z (..), (:.) (..))
 import qualified Data.Array.Accelerate.LLVM.PTX  as PTX
 
-import           Control.DeepSeq                 (rnf)
+import           Control.DeepSeq                 (rnf,force)
 import           Control.Exception               (evaluate)
 import           Data.Int                        (Int32)
 import           Data.Time.Clock                 (diffUTCTime, getCurrentTime)
 import           System.Environment              (getArgs)
 import           System.Exit                     (exitFailure)
 import           Text.Printf                     (printf)
+import System.Mem (performBlockingMajorGC)
 
 --------------------------------------------------------------------------------
 -- Julia set escape test
@@ -121,6 +122,9 @@ main = do
 
 runOnce :: Int -> IO ()
 runOnce dim = do
+
+  performBlockingMajorGC
+
   t0 <- getCurrentTime
 
   -- `run` launches the kernel and (in principle) copies the result back.
@@ -130,7 +134,8 @@ runOnce dim = do
   -- it, the measured interval could end before the D2H transfer actually
   -- finished, making the reported time artificially low.
   let result = PTX.run (pixels dim)
-  _ <- evaluate (rnf result)
+  _ <- evaluate (force result)
+
 
   t1 <- getCurrentTime
   let millis = realToFrac (diffUTCTime t1 t0) * 1000 :: Double
