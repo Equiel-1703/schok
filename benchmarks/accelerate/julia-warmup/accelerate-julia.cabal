@@ -1,12 +1,14 @@
 cabal-version:      2.4
 name:               accelerate-julia
-version:            0.2.0.0
+version:            0.3.0.0
 build-type:         Simple
-synopsis:           Accelerate Julia-set benchmark: cold (single run) and warm (runN) variants
+synopsis:           Accelerate Julia-set benchmark: cold (run) and warm (runN) variants
 
 common shared
   default-language:   Haskell2010
   ghc-options:        -O2 -threaded -rtsopts "-with-rtsopts=-N"
+  hs-source-dirs:     app
+  other-modules:      Julia
   build-depends:      base >=4.14 && <5
                     , accelerate
                     , accelerate-llvm-ptx
@@ -17,10 +19,8 @@ common shared
 executable accelerate-julia-cold
   import:             shared
   main-is:            Cold.hs
-  hs-source-dirs:     app
 
--- runN warm-up on a tiny input first; timed run excludes JIT compilation.
+-- runN with a tiny warm-up call first; the timed run excludes JIT compilation.
 executable accelerate-julia-warm
   import:             shared
   main-is:            Warm.hs
-  hs-source-dirs:     app
