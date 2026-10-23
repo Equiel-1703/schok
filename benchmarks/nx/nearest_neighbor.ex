@@ -15,9 +15,9 @@ defmodule BinaryGen do
 
   defp _create_bin(type, f) do
     case type do
-      :float_32 -> <<f.()::float-32>>
-      :float_64 -> <<f.()::float-64>>
-      :int_32 -> <<trunc(f.())::integer-32>>
+      :float_32 -> <<f.()::float-32-native>>
+      :float_64 -> <<f.()::float-64-native>>
+      :int_32 -> <<trunc(f.())::integer-32-native>>
       unknown -> raise "Provided type is invalid: #{unknown}"
     end
   end
