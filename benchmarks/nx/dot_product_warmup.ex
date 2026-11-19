@@ -70,9 +70,8 @@ defmodule DotProductNx do
 
   defp warmup_cuda_runtime! do
     # Forces PjRt CUDA client, context, and BFC allocator init outside the timer
-    <<0.0::float-64-native>>
-    |> Nx.from_binary({:f, 64}, backend: {EXLA.Backend, client: :cuda})
-    |> Nx.to_number()
+    dummy = <<0.0::float-64-native>> |> Nx.from_binary({:f, 64}, backend: {EXLA.Backend, client: :cuda})
+    Nx.to_number(dummy[0])
   end
 
   @doc """
